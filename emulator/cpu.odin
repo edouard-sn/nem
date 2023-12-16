@@ -6,7 +6,17 @@ CPURegisters :: struct {
     accumulator: u8,
     x: u8,
     y: u8,
-    flags: u8
+
+    flags: bit_set[enum{
+        Carry,
+        Zero, 
+        Interupt, // IRQ disable
+        Decimal, // (BCD for arithmetics)
+        Break,
+        _,
+        Overflow,
+        Negative
+    }]
 }
 
 CPU_MEMORY_SIZE :: 0x10000
@@ -57,7 +67,9 @@ new_cpu :: proc() -> CPU {
     memory.ram_map.stack = memory.raw[0x0100:0x01FF]
     memory.ram_map.ram = memory.raw[0x0200:0x07FF]
     memory.ram_map.mirrors = memory.raw[0x0800:0x1FFF]
-    
+
+    cpu.registers.stack_pointer = 0xFF // 0x01FF - 0x0100
+
     // CPU IO Registers map init
     memory.io_registers = memory.raw[0x2000:0x401F]
     memory.io_registers_map.first = memory.raw[0x2000:0x2007]
@@ -77,6 +89,15 @@ new_cpu :: proc() -> CPU {
     return cpu
 }
 
-consume_instruction :: proc(cpu: ^CPU, instruction: u8[]) {
+cpu_read_u8 :: proc(cpu: ^CPU, address: u16) -> u8 {
+    return cpu.memory.raw[address]
+}
+
+cpu_read_u16 :: proc(cpu: ^CPU, address: u16) -> u16 {
+    return u16(cpu.memory.raw[address] << 8) | u16(cpu.memory.raw[address + 1])
+}
+
+
+consume_instruction :: proc(cpu: ^CPU, instruction: []u8) {
     // TODO: ...   
 }
