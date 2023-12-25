@@ -1,7 +1,10 @@
 package main
 
-import "emulator"
+import "emulator/cpu"
+import "core:fmt"
 
 main :: proc() {
-    cpu := emulator.new_cpu()
+    cpu := cpu.new_cpu()
+    cpu.registers.flags |= {.Carry}
+    // fmt.printf("%d", cpu.registers.flags in {.Carry})
 }
