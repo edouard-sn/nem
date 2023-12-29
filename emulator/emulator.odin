@@ -1,5 +1,5 @@
 package emulator
 
 Nem :: struct {
-    console: Console,
+	console: Console,
 }
