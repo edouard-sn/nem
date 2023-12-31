@@ -1,10 +1,12 @@
 package main
 
 import "emulator/cpu"
-import "core:fmt"
+import "emulator/ines"
 
 main :: proc() {
-    cpu := cpu.new_cpu()
-    cpu.registers.flags |= {.Carry}
-    // fmt.printf("%d", cpu.registers.flags in {.Carry})
+	cpu := cpu.new_cpu()
+	_ = ines.load_rom("nestest.nes")
+
+
+	cpu.registers.flags |= {.Carry}
 }

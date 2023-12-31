@@ -6,15 +6,16 @@ import "core:fmt"
 CPU :: struct {
 	registers: CPURegisters,
 	memory:    CPUMemory,
+	cycles:	   uint,
 }
 
 @(private)
 CPURegisters :: struct {
 	program_counter: u16,
-	stack_pointer:   u8,
-	accumulator:     u8,
-	x:               u8,
-	y:               u8,
+	stack_pointer:   byte,
+	accumulator:     byte,
+	x:               byte,
+	y:               byte,
 	flags:           CPUFlagRegistry,
 }
 
@@ -28,7 +29,7 @@ CPUFlagRegistry :: bit_set[enum {
 	Bit5,
 	Overflow,
 	Negative,
-};u8]
+};byte]
 
 
 @(private)
@@ -36,27 +37,27 @@ CPU_MEMORY_SIZE :: 0x10000
 
 @(private)
 CPUMemory :: struct {
-	raw:              ^[CPU_MEMORY_SIZE]u8,
+	raw:              ^[CPU_MEMORY_SIZE]byte,
 
 	//  memory slices
-	ram:              []u8,
+	ram:              []byte,
 	ram_map:          struct {
-		zero_page: []u8,
-		stack:     []u8,
-		ram:       []u8,
-		mirrors:   []u8,
+		zero_page: []byte,
+		stack:     []byte,
+		ram:       []byte,
+		mirrors:   []byte,
 	},
-	io_registers:     []u8,
+	io_registers:     []byte,
 	io_registers_map: struct {
-		first:   []u8,
-		mirrors: []u8,
-		second:  []u8,
+		first:   []byte,
+		mirrors: []byte,
+		second:  []byte,
 	},
-	expansion_rom:    []u8,
-	sram:             []u8,
+	expansion_rom:    []byte,
+	sram:             []byte,
 	prg_rom:          struct {
-		lower: []u8,
-		upper: []u8,
+		lower: []byte,
+		upper: []byte,
 	},
 }
 
@@ -64,7 +65,7 @@ new_cpu :: proc() -> CPU {
 	cpu: CPU
 	memory := &cpu.memory
 
-	memory.raw = new([CPU_MEMORY_SIZE]u8)
+	memory.raw = new([CPU_MEMORY_SIZE]byte)
 
 	// CPU RAM map init
 	memory.ram = memory.raw[0x0000:0x07FF]
@@ -95,42 +96,42 @@ new_cpu :: proc() -> CPU {
 	return cpu
 }
 
-read_u8 :: proc(cpu: ^CPU, address: u16) -> u8 {
+read_byte :: proc(cpu: ^CPU, address: u16) -> byte {
 	return cpu.memory.raw[address]
 }
 
 read_u16 :: proc(cpu: ^CPU, address: u16) -> u16 {
-	return u16(cpu.memory.raw[address] << 8) | u16(cpu.memory.raw[address + 1])
+	return u16(cpu.memory.raw[address]) | u16(cpu.memory.raw[address + 1] << 8)
 }
 
-push_u8_on_stack :: proc(cpu: ^CPU, value: u8) -> bool {
+push_byte_on_stack :: proc(cpu: ^CPU, value: byte) -> bool {
 	when ODIN_DEBUG 
 	{
-		if (cpu.registers.stack_pointer - size_of(u8) >= 0) {
+		if (cpu.registers.stack_pointer - size_of(byte) >= 0) {
 			fmt.printf(
-				"Stack overflow! %x won't be pushed to the stack. size_of(u8) = %d. stack_pointer = %x",
+				"Stack overflow! %x won't be pushed to the stack. size_of(byte) = %d. stack_pointer = %x",
 				value,
-				size_of(u8),
+				size_of(byte),
 				cpu.registers.stack_pointer,
 			)
 			return false
 		}
 	} else {
-		fmt.assertf(cpu.registers.stack_pointer - size_of(u8) >= 0, "Stack overflow :(")
+		fmt.assertf(cpu.registers.stack_pointer - size_of(byte) >= 0, "Stack overflow :(")
 		return false
 	}
 
 	stack := cpu.memory.ram_map.stack
-	cpu.registers.stack_pointer -= size_of(u8)
+	cpu.registers.stack_pointer -= size_of(byte)
 	stack[cpu.registers.stack_pointer] = value
 
 	return true
 }
 
-pull_u8_from_stack :: proc(cpu: ^CPU) -> u8 {
+pull_byte_from_stack :: proc(cpu: ^CPU) -> byte {
 	when ODIN_DEBUG 
 	{
-		if (size_of(u8) > cpu.registers.stack_pointer) {
+		if (size_of(byte) > cpu.registers.stack_pointer) {
 			fmt.printf(
 				"Stack underflow! No value will be pulled from the stack, value will be 0. stack_pointer = %x",
 				cpu.registers.stack_pointer,
@@ -138,11 +139,11 @@ pull_u8_from_stack :: proc(cpu: ^CPU) -> u8 {
 			return 0
 		}
 	} else {
-		fmt.assertf(size_of(u8) > cpu.registers.stack_pointer, "Stack underflow :(")
+		fmt.assertf(size_of(byte) > cpu.registers.stack_pointer, "Stack underflow :(")
 	}
 
 	value := cpu.memory.ram_map.stack[cpu.registers.stack_pointer]
-	cpu.registers.stack_pointer += size_of(u8)
+	cpu.registers.stack_pointer += size_of(byte)
 	return value
 }
 
@@ -161,10 +162,10 @@ pull_u16_from_stack :: proc(cpu: ^CPU) -> u16 {
 		return 0
 	}
 
-	return u16(pull_u8_from_stack(cpu)) | u16(pull_u8_from_stack(cpu) << 8)
+	return u16(pull_byte_from_stack(cpu)) | u16(pull_byte_from_stack(cpu) << 8)
 }
 
-x_zp_indirect :: proc(cpu: ^CPU, data: ^[]u8) -> u16 {
+x_zp_indirect :: proc(cpu: ^CPU, data: ^[]byte) -> u16 {
 	temp_address := u16(data[0]) + u16(cpu.registers.x)
 
 	lo := cpu.memory.raw[temp_address]
@@ -173,7 +174,7 @@ x_zp_indirect :: proc(cpu: ^CPU, data: ^[]u8) -> u16 {
 	return u16(hi << 8) | u16(lo)
 }
 
-zp_indirect_y :: proc(cpu: ^CPU, data: ^[]u8) -> u16 {
+zp_indirect_y :: proc(cpu: ^CPU, data: ^[]byte) -> u16 {
 	temp_address := data[0]
 
 	lo := cpu.memory.raw[temp_address]
@@ -182,30 +183,38 @@ zp_indirect_y :: proc(cpu: ^CPU, data: ^[]u8) -> u16 {
 	return (u16(hi << 8) | u16(lo)) + u16(cpu.registers.y)
 }
 
-zeropage :: #force_inline proc(data: ^[]u8, indexed_value: u8 = 0) -> u16 {
+zeropage :: #force_inline proc(data: ^[]byte, indexed_value: byte = 0) -> u16 {
 	return u16(data[0]) + u16(indexed_value)
 }
 
-immediate :: #force_inline proc(data: ^[]u8) -> u16 {
+immediate :: #force_inline proc(data: ^[]byte) -> u16 {
 	return u16(data[0])
 }
 
-absolute :: #force_inline proc(data: ^[]u8, indexed_value: u8 = 0) -> u16 {
+absolute :: #force_inline proc(data: ^[]byte, indexed_value: byte = 0) -> u16 {
 	lo := data[0]
 	hi := data[1]
 
 	return u16(hi << 8) | u16(lo) + u16(indexed_value)
 }
 
-relative :: #force_inline proc(cpu: ^CPU, data: ^[]u8) -> u16 {
+relative :: #force_inline proc(cpu: ^CPU, data: ^[]byte) -> u16 {
 	offset := data[0]
 	return u16(i16(cpu.registers.program_counter) + i16(offset))
 }
 
-
-process :: proc(cpu: ^CPU, data: []u8) {
-	for b in data {
-		execute_instruction(cpu, &data)
-		cpu.registers.program_counter += 1
-	}
+reset_interupt :: proc(cpu: ^CPU) {
+	cpu.registers.flags = {}
+	cpu.registers.x = 0
+	cpu.registers.accumulator = 0
+	cpu.registers.program_counter = read_u16(cpu, 0xFFFC)
 }
+
+load :: proc(cpu: ^CPU, program: []byte) {}
+
+// process :: proc(cpu: ^CPU, data: []byte) {
+// 	for b in data {
+// 		execute_instruction(cpu, &data)
+// 		cpu.registers.program_counter += 1
+// 	}
+// }
