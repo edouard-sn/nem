@@ -100,8 +100,8 @@ mirror_safe_address :: proc(address: u16) -> u16 {
 			// The modulo permits mirroring.
 			return address % 0x0800 
 		case:
-			panic("Not implemented yet")
-	}
+			return address
+		}
 	return 0
 }
 
