@@ -2,7 +2,8 @@
 NES Emulator project
 
 For now, only the 6502 is almost done (needs perfecting cycle-wise).
-No bus implementation or PPU has started yet.
+Bus is "implemented" for CPU RAM, will continued at the same pace as the project.
+PPU not started yet.
 
 
 # References
