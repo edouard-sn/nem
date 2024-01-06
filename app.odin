@@ -1,12 +1,8 @@
 package main
 
-import "emulator/cpu"
-import "emulator/ines"
+import nem_cpu "emulator/cpu"
 
 main :: proc() {
-	cpu := cpu.new_cpu()
-	_ = ines.load_rom("nestest.nes")
-
-
-	cpu.registers.flags |= {.Carry}
+	cpu := nem_cpu.new_cpu()
+	nem_cpu.reset_interupt(&cpu)
 }
