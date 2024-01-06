@@ -20,261 +20,243 @@ AddressMode :: enum {
 }
 
 // NOTE: Would it be worth it to remove the use of union so we can make the array const?
-InstructionHandle :: union { 
+InstructionHandle :: union {
 	proc(cpu: ^CPU), // No data processing
 	proc(cpu: ^CPU, data: ^byte), // Data processing
 	proc(cpu: ^CPU, address: u16), // Direct address access
 }
 
 Instruction :: struct {
-	handle:              InstructionHandle,
-	mode:                AddressMode,
-	cycles:              uint,
-	cycle_page_crossed:  bool,
+	name:				string,
+
+	// Instruction procedure logic
+	handle:             InstructionHandle,
+	
+	// How do we get the data needed
+	mode:               AddressMode,
+
+	// How many cycles does this instruction take
+	cycles:             uint,
+
+	// Does this instruction take an extra cycle if the page is crossed
+	cycle_page_crossed: bool,
+
+	// Is PC changed by this instruction
+	changes_pc:	    	bool,
 }
 
 instruction_handles := [0xFF]Instruction {
-	0x00 = Instruction{handle = brk_instruction, cycles = 7, mode = .Implied},
-	0x01 = Instruction{handle = ora_instruction, cycles = 6, mode = .XIndirect},
-	0x05 = Instruction{handle = ora_instruction, cycles = 3, mode = .ZeroPage},
-	0x06 = Instruction{handle = asl_instruction, cycles = 5, mode = .ZeroPage},
-	0x08 = Instruction{handle = php_instruction, cycles = 3, mode = .Implied},
-	0x09 = Instruction{handle = ora_instruction, cycles = 2, mode = .Immediate},
-	0x0A = Instruction{handle = asl_instruction, cycles = 2, mode = .Accumulator},
-	0x0D = Instruction{handle = ora_instruction, cycles = 4, mode = .Absolute},
-	0x0E = Instruction{handle = asl_instruction, cycles = 6, mode = .Absolute},
-	0x10 = Instruction{handle = bpl_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0x11 = Instruction{handle = ora_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x15 = Instruction{handle = ora_instruction, cycles = 4, mode = .ZeroPageX},
-	0x16 = Instruction{handle = asl_instruction, cycles = 6, mode = .ZeroPageX},
-	0x18 = Instruction{handle = clc_instruction, cycles = 2, mode = .Implied},
-	0x19 = Instruction{handle = ora_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x1D = Instruction{handle = ora_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x1E = Instruction{handle = asl_instruction, cycles = 7, mode = .AbsoluteX},
-	0x20 = Instruction{handle = jsr_instruction, cycles = 6, mode = .Absolute},
-	0x21 = Instruction{handle = and_instruction, cycles = 6, mode = .XIndirect},
-	0x24 = Instruction{handle = bit_instruction, cycles = 3, mode = .ZeroPage},
-	0x25 = Instruction{handle = and_instruction, cycles = 3, mode = .ZeroPage},
-	0x26 = Instruction{handle = rol_instruction, cycles = 5, mode = .ZeroPage},
-	0x28 = Instruction{handle = plp_instruction, cycles = 4, mode = .Implied},
-	0x29 = Instruction{handle = and_instruction, cycles = 2, mode = .Immediate},
-	0x2A = Instruction{handle = rol_instruction, cycles = 2, mode = .Accumulator},
-	0x2C = Instruction{handle = bit_instruction, cycles = 4, mode = .Absolute},
-	0x2D = Instruction{handle = and_instruction, cycles = 4, mode = .Absolute},
-	0x2E = Instruction{handle = rol_instruction, cycles = 6, mode = .Absolute},
-	0x30 = Instruction{handle = bmi_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0x31 = Instruction{handle = and_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x35 = Instruction{handle = and_instruction, cycles = 4, mode = .ZeroPageX},
-	0x36 = Instruction{handle = rol_instruction, cycles = 6, mode = .ZeroPageX},
-	0x38 = Instruction{handle = sec_instruction, cycles = 2, mode = .Implied},
-	0x39 = Instruction{handle = and_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x3D = Instruction{handle = and_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x3E = Instruction{handle = rol_instruction, cycles = 7, mode = .AbsoluteX},
-	0x40 = Instruction{handle = rti_instruction, cycles = 6, mode = .Implied},
-	0x41 = Instruction{handle = eor_instruction, cycles = 6, mode = .XIndirect},
-	0x45 = Instruction{handle = eor_instruction, cycles = 3, mode = .ZeroPage},
-	0x46 = Instruction{handle = lsr_instruction, cycles = 5, mode = .ZeroPage},
-	0x48 = Instruction{handle = pha_instruction, cycles = 3, mode = .Implied},
-	0x49 = Instruction{handle = eor_instruction, cycles = 2, mode = .Immediate},
-	0x4A = Instruction{handle = lsr_instruction, cycles = 2, mode = .Accumulator},
-	0x4C = Instruction{handle = jmp_instruction, cycles = 3, mode = .Absolute},
-	0x4D = Instruction{handle = eor_instruction, cycles = 4, mode = .Absolute},
-	0x4E = Instruction{handle = lsr_instruction, cycles = 6, mode = .Absolute},
-	0x50 = Instruction{handle = bvc_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0x51 = Instruction{handle = eor_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x55 = Instruction{handle = eor_instruction, cycles = 4, mode = .ZeroPageX},
-	0x56 = Instruction{handle = lsr_instruction, cycles = 6, mode = .ZeroPageX},
-	0x58 = Instruction{handle = cli_instruction, cycles = 2, mode = .Implied},
-	0x59 = Instruction{handle = eor_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x5D = Instruction{handle = eor_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x5E = Instruction{handle = lsr_instruction, cycles = 7, mode = .AbsoluteX},
-	0x60 = Instruction{handle = rts_instruction, cycles = 6, mode = .Implied},
-	0x61 = Instruction{handle = adc_instruction, cycles = 6, mode = .XIndirect},
-	0x65 = Instruction{handle = adc_instruction, cycles = 3, mode = .ZeroPage},
-	0x66 = Instruction{handle = ror_instruction, cycles = 5, mode = .ZeroPage},
-	0x68 = Instruction{handle = pla_instruction, cycles = 4, mode = .Implied},
-	0x69 = Instruction{handle = adc_instruction, cycles = 2, mode = .Immediate},
-	0x6A = Instruction{handle = ror_instruction, cycles = 2, mode = .Accumulator},
-	0x6C = Instruction{handle = jmp_instruction, cycles = 5, mode = .Indirect},
-	0x6D = Instruction{handle = adc_instruction, cycles = 4, mode = .Absolute},
-	0x6E = Instruction{handle = ror_instruction, cycles = 6, mode = .Absolute},
-	0x70 = Instruction{handle = bvs_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0x71 = Instruction{handle = adc_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x75 = Instruction{handle = adc_instruction, cycles = 4, mode = .ZeroPageX},
-	0x76 = Instruction{handle = ror_instruction, cycles = 6, mode = .ZeroPageX},
-	0x78 = Instruction{handle = sei_instruction, cycles = 2, mode = .Implied},
-	0x79 = Instruction{handle = adc_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x7D = Instruction{handle = adc_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x7E = Instruction{handle = ror_instruction, cycles = 7, mode = .AbsoluteX},
-	0x81 = Instruction{handle = sta_instruction, cycles = 6, mode = .XIndirect},
-	0x84 = Instruction{handle = sty_instruction, cycles = 3, mode = .ZeroPage},
-	0x85 = Instruction{handle = sta_instruction, cycles = 3, mode = .ZeroPage},
-	0x86 = Instruction{handle = stx_instruction, cycles = 3, mode = .ZeroPage},
-	0x88 = Instruction{handle = dey_instruction, cycles = 2, mode = .Implied},
-	0x8A = Instruction{handle = txa_instruction, cycles = 2, mode = .Implied},
-	0x8C = Instruction{handle = sty_instruction, cycles = 4, mode = .Absolute},
-	0x8D = Instruction{handle = sta_instruction, cycles = 4, mode = .Absolute},
-	0x8E = Instruction{handle = stx_instruction, cycles = 4, mode = .Absolute},
-	0x90 = Instruction{handle = bcc_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0x91 = Instruction{handle = sta_instruction, cycles = 6, mode = .IndirectY},
-	0x94 = Instruction{handle = sty_instruction, cycles = 4, mode = .ZeroPageX},
-	0x95 = Instruction{handle = sta_instruction, cycles = 4, mode = .ZeroPageX},
-	0x96 = Instruction{handle = stx_instruction, cycles = 4, mode = .ZeroPageY},
-	0x98 = Instruction{handle = tya_instruction, cycles = 2, mode = .Implied},
-	0x99 = Instruction{handle = sta_instruction, cycles = 5, mode = .AbsoluteY},
-	0x9A = Instruction{handle = txs_instruction, cycles = 2, mode = .Implied},
-	0x9D = Instruction{handle = sta_instruction, cycles = 5, mode = .AbsoluteX},
-	0xA0 = Instruction{handle = ldy_instruction, cycles = 2, mode = .Immediate},
-	0xA1 = Instruction{handle = lda_instruction, cycles = 6, mode = .XIndirect},
-	0xA2 = Instruction{handle = ldx_instruction, cycles = 2, mode = .Immediate},
-	0xA4 = Instruction{handle = ldy_instruction, cycles = 3, mode = .ZeroPage},
-	0xA5 = Instruction{handle = lda_instruction, cycles = 3, mode = .ZeroPage},
-	0xA6 = Instruction{handle = ldx_instruction, cycles = 3, mode = .ZeroPage},
-	0xA8 = Instruction{handle = tay_instruction, cycles = 2, mode = .Implied},
-	0xA9 = Instruction{handle = lda_instruction, cycles = 2, mode = .Immediate},
-	0xAA = Instruction{handle = tax_instruction, cycles = 2, mode = .Implied},
-	0xAC = Instruction{handle = ldy_instruction, cycles = 4, mode = .Absolute},
-	0xAD = Instruction{handle = lda_instruction, cycles = 4, mode = .Absolute},
-	0xAE = Instruction{handle = ldx_instruction, cycles = 4, mode = .Absolute},
-	0xB0 = Instruction{handle = bcs_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0xB1 = Instruction{handle = lda_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0xB4 = Instruction{handle = ldy_instruction, cycles = 4, mode = .ZeroPageX},
-	0xB5 = Instruction{handle = lda_instruction, cycles = 4, mode = .ZeroPageX},
-	0xB6 = Instruction{handle = ldx_instruction, cycles = 4, mode = .ZeroPageY},
-	0xB8 = Instruction{handle = clv_instruction, cycles = 2, mode = .Implied},
-	0xB9 = Instruction{handle = lda_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xBA = Instruction{handle = tsx_instruction, cycles = 2, mode = .Implied},
-	0xBC = Instruction{handle = ldy_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xBD = Instruction{handle = lda_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xBE = Instruction{handle = ldx_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xC0 = Instruction{handle = cpy_instruction, cycles = 2, mode = .Immediate},
-	0xC1 = Instruction{handle = cmp_instruction, cycles = 6, mode = .XIndirect},
-	0xC4 = Instruction{handle = cpy_instruction, cycles = 3, mode = .ZeroPage},
-	0xC5 = Instruction{handle = cmp_instruction, cycles = 3, mode = .ZeroPage},
-	0xC6 = Instruction{handle = dec_instruction, cycles = 5, mode = .ZeroPage},
-	0xC8 = Instruction{handle = iny_instruction, cycles = 2, mode = .Implied},
-	0xC9 = Instruction{handle = cmp_instruction, cycles = 2, mode = .Immediate},
-	0xCA = Instruction{handle = dex_instruction, cycles = 2, mode = .Implied},
-	0xCC = Instruction{handle = cpy_instruction, cycles = 4, mode = .Absolute},
-	0xCD = Instruction{handle = cmp_instruction, cycles = 4, mode = .Absolute},
-	0xCE = Instruction{handle = dec_instruction, cycles = 6, mode = .Absolute},
-	0xD0 = Instruction{handle = bne_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0xD1 = Instruction{handle = cmp_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0xD5 = Instruction{handle = cmp_instruction, cycles = 4, mode = .ZeroPageX},
-	0xD6 = Instruction{handle = dec_instruction, cycles = 6, mode = .ZeroPageX},
-	0xD8 = Instruction{handle = cld_instruction, cycles = 2, mode = .Implied},
-	0xD9 = Instruction{handle = cmp_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xDD = Instruction{handle = cmp_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xDE = Instruction{handle = dec_instruction, cycles = 7, mode = .AbsoluteX},
-	0xE0 = Instruction{handle = cpx_instruction, cycles = 2, mode = .Immediate},
-	0xE1 = Instruction{handle = sbc_instruction, cycles = 6, mode = .XIndirect},
-	0xE4 = Instruction{handle = cpx_instruction, cycles = 3, mode = .ZeroPage},
-	0xE5 = Instruction{handle = sbc_instruction, cycles = 3, mode = .ZeroPage},
-	0xE6 = Instruction{handle = inc_instruction, cycles = 5, mode = .ZeroPage},
-	0xE8 = Instruction{handle = inx_instruction, cycles = 2, mode = .Implied},
-	0xE9 = Instruction{handle = sbc_instruction, cycles = 2, mode = .Immediate},
-	0xEA = Instruction{handle = nop_instruction, cycles = 2, mode = .Implied},
-	0xEC = Instruction{handle = cpx_instruction, cycles = 4, mode = .Absolute},
-	0xED = Instruction{handle = sbc_instruction, cycles = 4, mode = .Absolute},
-	0xEE = Instruction{handle = inc_instruction, cycles = 6, mode = .Absolute},
-	0xF0 = Instruction{handle = beq_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
-	0xF1 = Instruction{handle = sbc_instruction, cycles = 5, mode = .IndirectY , cycle_page_crossed = true},
-	0xF5 = Instruction{handle = sbc_instruction, cycles = 4, mode = .ZeroPageX},
-	0xF6 = Instruction{handle = inc_instruction, cycles = 6, mode = .ZeroPageX},
-	0xF8 = Instruction{handle = sed_instruction, cycles = 2, mode = .Implied},
-	0xF9 = Instruction{handle = sbc_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xFD = Instruction{handle = sbc_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xFE = Instruction{handle = inc_instruction, cycles = 7, mode = .AbsoluteX},
+	0x00 = Instruction{name="BRK", handle = brk_instruction, cycles = 7, mode = .Implied},
+	0x01 = Instruction{name="ORA", handle = ora_instruction, cycles = 6, mode = .XIndirect},
+	0x05 = Instruction{name="ORA", handle = ora_instruction, cycles = 3, mode = .ZeroPage},
+	0x06 = Instruction{name="ASL", handle = asl_instruction, cycles = 5, mode = .ZeroPage},
+	0x08 = Instruction{name="PHP", handle = php_instruction, cycles = 3, mode = .Implied},
+	0x09 = Instruction{name="ORA", handle = ora_instruction, cycles = 2, mode = .Immediate},
+	0x0A = Instruction{name="ASL", handle = asl_instruction, cycles = 2, mode = .Accumulator},
+	0x0D = Instruction{name="ORA", handle = ora_instruction, cycles = 4, mode = .Absolute},
+	0x0E = Instruction{name="ASL", handle = asl_instruction, cycles = 6, mode = .Absolute},
+	0x10 = Instruction{name="BPL", handle = bpl_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0x11 = Instruction{name="ORA", handle = ora_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0x15 = Instruction{name="ORA", handle = ora_instruction, cycles = 4, mode = .ZeroPageX},
+	0x16 = Instruction{name="ASL", handle = asl_instruction, cycles = 6, mode = .ZeroPageX},
+	0x18 = Instruction{name="CLC", handle = clc_instruction, cycles = 2, mode = .Implied},
+	0x19 = Instruction{name="ORA", handle = ora_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0x1D = Instruction{name="ORA", handle = ora_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0x1E = Instruction{name="ASL", handle = asl_instruction, cycles = 7, mode = .AbsoluteX},
+	0x20 = Instruction{name="JSR", handle = jsr_instruction, cycles = 6, mode = .Absolute, changes_pc = true},
+	0x21 = Instruction{name="AND", handle = and_instruction, cycles = 6, mode = .XIndirect},
+	0x24 = Instruction{name="BIT", handle = bit_instruction, cycles = 3, mode = .ZeroPage},
+	0x25 = Instruction{name="AND", handle = and_instruction, cycles = 3, mode = .ZeroPage},
+	0x26 = Instruction{name="ROL", handle = rol_instruction, cycles = 5, mode = .ZeroPage},
+	0x28 = Instruction{name="PLP", handle = plp_instruction, cycles = 4, mode = .Implied},
+	0x29 = Instruction{name="AND", handle = and_instruction, cycles = 2, mode = .Immediate},
+	0x2A = Instruction{name="ROL", handle = rol_instruction, cycles = 2, mode = .Accumulator},
+	0x2C = Instruction{name="BIT", handle = bit_instruction, cycles = 4, mode = .Absolute},
+	0x2D = Instruction{name="AND", handle = and_instruction, cycles = 4, mode = .Absolute},
+	0x2E = Instruction{name="ROL", handle = rol_instruction, cycles = 6, mode = .Absolute},
+	0x30 = Instruction{name="BMI", handle = bmi_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0x31 = Instruction{name="AND", handle = and_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0x35 = Instruction{name="AND", handle = and_instruction, cycles = 4, mode = .ZeroPageX},
+	0x36 = Instruction{name="ROL", handle = rol_instruction, cycles = 6, mode = .ZeroPageX},
+	0x38 = Instruction{name="SEC", handle = sec_instruction, cycles = 2, mode = .Implied},
+	0x39 = Instruction{name="AND", handle = and_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0x3D = Instruction{name="AND", handle = and_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0x3E = Instruction{name="ROL", handle = rol_instruction, cycles = 7, mode = .AbsoluteX},
+	0x40 = Instruction{name="RTI", handle = rti_instruction, cycles = 6, mode = .Implied, changes_pc=true},
+	0x41 = Instruction{name="EOR", handle = eor_instruction, cycles = 6, mode = .XIndirect},
+	0x45 = Instruction{name="EOR", handle = eor_instruction, cycles = 3, mode = .ZeroPage},
+	0x46 = Instruction{name="LSR", handle = lsr_instruction, cycles = 5, mode = .ZeroPage},
+	0x48 = Instruction{name="PHA", handle = pha_instruction, cycles = 3, mode = .Implied},
+	0x49 = Instruction{name="EOR", handle = eor_instruction, cycles = 2, mode = .Immediate},
+	0x4A = Instruction{name="LSR", handle = lsr_instruction, cycles = 2, mode = .Accumulator},
+	0x4C = Instruction{name="JMP", handle = jmp_instruction, cycles = 3, mode = .Absolute, changes_pc = true},
+	0x4D = Instruction{name="EOR", handle = eor_instruction, cycles = 4, mode = .Absolute},
+	0x4E = Instruction{name="LSR", handle = lsr_instruction, cycles = 6, mode = .Absolute},
+	0x50 = Instruction{name="BVC", handle = bvc_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0x51 = Instruction{name="EOR", handle = eor_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0x55 = Instruction{name="EOR", handle = eor_instruction, cycles = 4, mode = .ZeroPageX},
+	0x56 = Instruction{name="LSR", handle = lsr_instruction, cycles = 6, mode = .ZeroPageX},
+	0x58 = Instruction{name="CLI", handle = cli_instruction, cycles = 2, mode = .Implied},
+	0x59 = Instruction{name="EOR", handle = eor_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0x5D = Instruction{name="EOR", handle = eor_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0x5E = Instruction{name="LSR", handle = lsr_instruction, cycles = 7, mode = .AbsoluteX},
+	0x60 = Instruction{name="RTS", handle = rts_instruction, cycles = 6, mode = .Implied, changes_pc=true},
+	0x61 = Instruction{name="ADC", handle = adc_instruction, cycles = 6, mode = .XIndirect},
+	0x65 = Instruction{name="ADC", handle = adc_instruction, cycles = 3, mode = .ZeroPage},
+	0x66 = Instruction{name="ROR", handle = ror_instruction, cycles = 5, mode = .ZeroPage},
+	0x68 = Instruction{name="PLA", handle = pla_instruction, cycles = 4, mode = .Implied},
+	0x69 = Instruction{name="ADC", handle = adc_instruction, cycles = 2, mode = .Immediate},
+	0x6A = Instruction{name="ROR", handle = ror_instruction, cycles = 2, mode = .Accumulator},
+	0x6C = Instruction{name="JMP", handle = jmp_instruction, cycles = 5, mode = .Indirect},
+	0x6D = Instruction{name="ADC", handle = adc_instruction, cycles = 4, mode = .Absolute},
+	0x6E = Instruction{name="ROR", handle = ror_instruction, cycles = 6, mode = .Absolute},
+	0x70 = Instruction{name="BVS", handle = bvs_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0x71 = Instruction{name="ADC", handle = adc_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0x75 = Instruction{name="ADC", handle = adc_instruction, cycles = 4, mode = .ZeroPageX},
+	0x76 = Instruction{name="ROR", handle = ror_instruction, cycles = 6, mode = .ZeroPageX},
+	0x78 = Instruction{name="SEI", handle = sei_instruction, cycles = 2, mode = .Implied},
+	0x79 = Instruction{name="ADC", handle = adc_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0x7D = Instruction{name="ADC", handle = adc_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0x7E = Instruction{name="ROR", handle = ror_instruction, cycles = 7, mode = .AbsoluteX},
+	0x81 = Instruction{name="STA", handle = sta_instruction, cycles = 6, mode = .XIndirect},
+	0x84 = Instruction{name="STY", handle = sty_instruction, cycles = 3, mode = .ZeroPage},
+	0x85 = Instruction{name="STA", handle = sta_instruction, cycles = 3, mode = .ZeroPage},
+	0x86 = Instruction{name="STX", handle = stx_instruction, cycles = 3, mode = .ZeroPage},
+	0x88 = Instruction{name="DEY", handle = dey_instruction, cycles = 2, mode = .Implied},
+	0x8A = Instruction{name="TXA", handle = txa_instruction, cycles = 2, mode = .Implied},
+	0x8C = Instruction{name="STY", handle = sty_instruction, cycles = 4, mode = .Absolute},
+	0x8D = Instruction{name="STA", handle = sta_instruction, cycles = 4, mode = .Absolute},
+	0x8E = Instruction{name="STX", handle = stx_instruction, cycles = 4, mode = .Absolute},
+	0x90 = Instruction{name="BCC", handle = bcc_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0x91 = Instruction{name="STA", handle = sta_instruction, cycles = 6, mode = .IndirectY},
+	0x94 = Instruction{name="STY", handle = sty_instruction, cycles = 4, mode = .ZeroPageX},
+	0x95 = Instruction{name="STA", handle = sta_instruction, cycles = 4, mode = .ZeroPageX},
+	0x96 = Instruction{name="STX", handle = stx_instruction, cycles = 4, mode = .ZeroPageY},
+	0x98 = Instruction{name="TYA", handle = tya_instruction, cycles = 2, mode = .Implied},
+	0x99 = Instruction{name="STA", handle = sta_instruction, cycles = 5, mode = .AbsoluteY},
+	0x9A = Instruction{name="TXS", handle = txs_instruction, cycles = 2, mode = .Implied},
+	0x9D = Instruction{name="STA", handle = sta_instruction, cycles = 5, mode = .AbsoluteX},
+	0xA0 = Instruction{name="LDY", handle = ldy_instruction, cycles = 2, mode = .Immediate},
+	0xA1 = Instruction{name="LDA", handle = lda_instruction, cycles = 6, mode = .XIndirect},
+	0xA2 = Instruction{name="LDX", handle = ldx_instruction, cycles = 2, mode = .Immediate},
+	0xA4 = Instruction{name="LDY", handle = ldy_instruction, cycles = 3, mode = .ZeroPage},
+	0xA5 = Instruction{name="LDA", handle = lda_instruction, cycles = 3, mode = .ZeroPage},
+	0xA6 = Instruction{name="LDX", handle = ldx_instruction, cycles = 3, mode = .ZeroPage},
+	0xA8 = Instruction{name="TAY", handle = tay_instruction, cycles = 2, mode = .Implied},
+	0xA9 = Instruction{name="LDA", handle = lda_instruction, cycles = 2, mode = .Immediate},
+	0xAA = Instruction{name="TAX", handle = tax_instruction, cycles = 2, mode = .Implied},
+	0xAC = Instruction{name="LDY", handle = ldy_instruction, cycles = 4, mode = .Absolute},
+	0xAD = Instruction{name="LDA", handle = lda_instruction, cycles = 4, mode = .Absolute},
+	0xAE = Instruction{name="LDX", handle = ldx_instruction, cycles = 4, mode = .Absolute},
+	0xB0 = Instruction{name="BCS", handle = bcs_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0xB1 = Instruction{name="LDA", handle = lda_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0xB4 = Instruction{name="LDY", handle = ldy_instruction, cycles = 4, mode = .ZeroPageX},
+	0xB5 = Instruction{name="LDA", handle = lda_instruction, cycles = 4, mode = .ZeroPageX},
+	0xB6 = Instruction{name="LDX", handle = ldx_instruction, cycles = 4, mode = .ZeroPageY},
+	0xB8 = Instruction{name="CLV", handle = clv_instruction, cycles = 2, mode = .Implied},
+	0xB9 = Instruction{name="LDA", handle = lda_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0xBA = Instruction{name="TSX", handle = tsx_instruction, cycles = 2, mode = .Implied},
+	0xBC = Instruction{name="LDY", handle = ldy_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0xBD = Instruction{name="LDA", handle = lda_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0xBE = Instruction{name="LDX", handle = ldx_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0xC0 = Instruction{name="CPY", handle = cpy_instruction, cycles = 2, mode = .Immediate},
+	0xC1 = Instruction{name="CMP", handle = cmp_instruction, cycles = 6, mode = .XIndirect},
+	0xC4 = Instruction{name="CPY", handle = cpy_instruction, cycles = 3, mode = .ZeroPage},
+	0xC5 = Instruction{name="CMP", handle = cmp_instruction, cycles = 3, mode = .ZeroPage},
+	0xC6 = Instruction{name="DEC", handle = dec_instruction, cycles = 5, mode = .ZeroPage},
+	0xC8 = Instruction{name="INY", handle = iny_instruction, cycles = 2, mode = .Implied},
+	0xC9 = Instruction{name="CMP", handle = cmp_instruction, cycles = 2, mode = .Immediate},
+	0xCA = Instruction{name="DEX", handle = dex_instruction, cycles = 2, mode = .Implied},
+	0xCC = Instruction{name="CPY", handle = cpy_instruction, cycles = 4, mode = .Absolute},
+	0xCD = Instruction{name="CMP", handle = cmp_instruction, cycles = 4, mode = .Absolute},
+	0xCE = Instruction{name="DEC", handle = dec_instruction, cycles = 6, mode = .Absolute},
+	0xD0 = Instruction{name="BNE", handle = bne_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0xD1 = Instruction{name="CMP", handle = cmp_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0xD5 = Instruction{name="CMP", handle = cmp_instruction, cycles = 4, mode = .ZeroPageX},
+	0xD6 = Instruction{name="DEC", handle = dec_instruction, cycles = 6, mode = .ZeroPageX},
+	0xD8 = Instruction{name="CLD", handle = cld_instruction, cycles = 2, mode = .Implied},
+	0xD9 = Instruction{name="CMP", handle = cmp_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0xDD = Instruction{name="CMP", handle = cmp_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0xDE = Instruction{name="DEC", handle = dec_instruction, cycles = 7, mode = .AbsoluteX},
+	0xE0 = Instruction{name="CPX", handle = cpx_instruction, cycles = 2, mode = .Immediate},
+	0xE1 = Instruction{name="SBC", handle = sbc_instruction, cycles = 6, mode = .XIndirect},
+	0xE4 = Instruction{name="CPX", handle = cpx_instruction, cycles = 3, mode = .ZeroPage},
+	0xE5 = Instruction{name="SBC", handle = sbc_instruction, cycles = 3, mode = .ZeroPage},
+	0xE6 = Instruction{name="INC", handle = inc_instruction, cycles = 5, mode = .ZeroPage},
+	0xE8 = Instruction{name="INX", handle = inx_instruction, cycles = 2, mode = .Implied},
+	0xE9 = Instruction{name="SBC", handle = sbc_instruction, cycles = 2, mode = .Immediate},
+	0xEA = Instruction{name="NOP", handle = nop_instruction, cycles = 2, mode = .Implied},
+	0xEC = Instruction{name="CPX", handle = cpx_instruction, cycles = 4, mode = .Absolute},
+	0xED = Instruction{name="SBC", handle = sbc_instruction, cycles = 4, mode = .Absolute},
+	0xEE = Instruction{name="INC", handle = inc_instruction, cycles = 6, mode = .Absolute},
+	0xF0 = Instruction{name="BEQ", handle = beq_instruction, cycles = 2, mode = .Relative, cycle_page_crossed = true},
+	0xF1 = Instruction{name="SBC", handle = sbc_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
+	0xF5 = Instruction{name="SBC", handle = sbc_instruction, cycles = 4, mode = .ZeroPageX},
+	0xF6 = Instruction{name="INC", handle = inc_instruction, cycles = 6, mode = .ZeroPageX},
+	0xF8 = Instruction{name="SED", handle = sed_instruction, cycles = 2, mode = .Implied},
+	0xF9 = Instruction{name="SBC", handle = sbc_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
+	0xFD = Instruction{name="SBC", handle = sbc_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
+	0xFE = Instruction{name="INC", handle = inc_instruction, cycles = 7, mode = .AbsoluteX},
 }
 
 AddressingHelper :: struct {
-	handle: proc(^CPU, ^[]byte) -> u16,
+	handle: proc(_: ^CPU, _: []byte) -> u16,
 	bytes:  uint,
 }
-addressing_helpers := [AddressMode] AddressingHelper  {
-	.Implied = {
-		handle = proc(cpu: ^CPU, _: ^[]byte) -> u16 {return 0},
-		bytes = 0,
-	},
-	.Accumulator = {
-		handle = proc(cpu: ^CPU, _: ^[]byte) -> u16 {return 0},
-		bytes = 0,
-	},
-	.Immediate = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return immediate(data)},
-		bytes = 1,
-	},
-	.ZeroPage = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return zeropage(data)},
-		bytes = 1,
-	},
-	.ZeroPageX = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return zeropage(data, cpu.registers.x)},
-		bytes = 1,
-	},
-	.ZeroPageY = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return zeropage(data, cpu.registers.y)},
-		bytes = 1,
-	},
-	.Relative = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return relative(cpu, data)},
-		bytes = 1,
-	},
-	.Absolute = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return absolute(data)},
-		bytes = 2,
-	},
-	.AbsoluteX = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return absolute(data, cpu.registers.x)},
-		bytes = 2,
-	},
-	.AbsoluteY = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return absolute(data, cpu.registers.y)},
-		bytes = 2,
-	},
-	.Indirect = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return absolute(data)},
-		bytes = 2,
-	},
-	.XIndirect = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return x_zp_indirect(cpu, data)},
-		bytes = 1,
-	},
-	.IndirectY = {
-		handle = proc(cpu: ^CPU, data: ^[]byte) -> u16 {return zp_indirect_y(cpu, data)},
-		bytes = 1,
-	},
+addressing_helpers := [AddressMode]AddressingHelper {
+	.Implied = {handle = proc(cpu: ^CPU, _: []byte) -> u16 {return 0}, bytes = 0},
+	.Accumulator = {handle = proc(cpu: ^CPU, _: []byte) -> u16 {return u16(cpu.registers.accumulator)}, bytes = 0},
+	.Immediate = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return immediate(data)}, bytes = 1},
+	.ZeroPage = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zeropage(data)}, bytes = 1},
+	.ZeroPageX = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zeropage(data, cpu.registers.x)}, bytes = 1},
+	.ZeroPageY = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zeropage(data, cpu.registers.y)}, bytes = 1},
+	.Relative = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return relative(cpu, data)}, bytes = 1},
+	.Absolute = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data)}, bytes = 2},
+	.AbsoluteX = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data, cpu.registers.x)}, bytes = 2},
+	.AbsoluteY = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data, cpu.registers.y)}, bytes = 2},
+	.Indirect = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data)}, bytes = 2},
+	.XIndirect = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return x_zp_indirect(cpu, data)}, bytes = 1},
+	.IndirectY = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zp_indirect_y(cpu, data)}, bytes = 1},
 }
 
-execute_instruction :: proc(cpu: ^CPU, data: ^[]byte) {
-	op_code := data[0]
+execute_instruction :: proc(cpu: ^CPU) {
+	op_code := cpu.memory.raw[cpu.registers.program_counter]
+	data := cpu.memory.raw[cpu.registers.program_counter + 1:]
 	instruction := instruction_handles[op_code]
-	cpu.cycles += 1
 
-	data^ = data[1:]
 	if (instruction.handle != nil) {
 		addressing := addressing_helpers[instruction.mode]
 		address := addressing.handle(cpu, data)
-		data^ = data[addressing.bytes:]
 
-		cpu.registers.program_counter += u16(addressing.bytes)
 		// Pages on the 6502 are 256 bytes long. If the address crosses a page boundary, we add an extra cycle when needed.
 		if (instruction.cycle_page_crossed && (address & 0xFF00) != (cpu.registers.program_counter & 0xFF00)) {
-			cpu.cycles +=  1
+			cpu.cycles += 1
 		}
 
 		switch ins in instruction.handle {
-			case proc(^CPU):
-				ins(cpu) 
-			case proc(^CPU, u16): 
+			case proc(_: ^CPU):
+				ins(cpu)
+			case proc(_: ^CPU, _: u16):
 				ins(cpu, address)
-			case proc(^CPU, ^byte): 
-				ins(cpu, &cpu.memory.raw[address])
+			case proc(_: ^CPU, _: ^byte):
+				if instruction.mode == .Immediate {
+					value := u8(address)
+					ins(cpu, &value)
+				} else  if instruction.mode == .Accumulator {
+					ins(cpu, &cpu.registers.accumulator)
+				}
+				 else {
+					ins(cpu, &cpu.memory.raw[address])
+				}
 		}
 		cpu.cycles += instruction.cycles
+
+		if (instruction.changes_pc == false) {
+			cpu.registers.program_counter += u16(addressing.bytes) + 1
+		}
 	}
 	 else {
-		fmt.eprintf("Unknown OP-code encountered: [%02d]", op_code)
+		fmt.assertf(false, "Unknown OP-code encountered: [%02d]", op_code)
 	}
 }
 
@@ -342,14 +324,14 @@ dey_instruction :: proc(cpu: ^CPU) {
 }
 
 php_instruction :: proc(cpu: ^CPU) {
-	assert(push_byte_on_stack(cpu, transmute(byte)(cpu.registers.flags | {.Break, .Bit5})))
+	push_byte_on_stack(cpu, transmute(byte)(cpu.registers.flags | {.Break, .Bit5}))
 }
 
 nop_instruction :: proc(cpu: ^CPU) {
 }
 
 pla_instruction :: proc(cpu: ^CPU) {
-	assert(push_byte_on_stack(cpu, cpu.registers.accumulator))
+	push_byte_on_stack(cpu, cpu.registers.accumulator)
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
@@ -530,7 +512,8 @@ adc_instruction :: proc(cpu: ^CPU, data: ^byte) {
 
 	// Shenanigans https://stackoverflow.com/questions/29193303/6502-emulation-proper-way-to-implement-adc-and-sbc
 	overflow: bool =
-		((((u16(~(cpu.registers.accumulator ~ data^))) & ((u16(cpu.registers.accumulator) ~ addition))) & 0b1000_0000) >
+		((((u16(~(cpu.registers.accumulator ~ data^))) & ((u16(cpu.registers.accumulator) ~ addition))) &
+				0b1000_0000) >
 			0)
 	_set_mask(&cpu.registers.flags, {.Overflow}, overflow)
 
@@ -560,8 +543,8 @@ jmp_instruction :: proc(cpu: ^CPU, address: u16) {
 jsr_instruction :: proc(cpu: ^CPU, address: u16) {
 	stack_pc := cpu.registers.program_counter + 2
 
-	assert(push_byte_on_stack(cpu, byte(stack_pc & 0xFF00) >> 8))
-	assert(push_byte_on_stack(cpu, byte(stack_pc & 0x00FF)))
+	push_byte_on_stack(cpu, byte(stack_pc & 0xFF00 >> 8))
+	push_byte_on_stack(cpu, byte(stack_pc & 0x00FF))
 
 	cpu.registers.program_counter = address
 }
@@ -574,68 +557,49 @@ bit_instruction :: proc(cpu: ^CPU, data: ^byte) {
 	_set_mask(&cpu.registers.flags, {.Zero}, (and_result == 0))
 }
 
-bpl_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Negative not_in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
+_branch_instruction :: #force_inline proc(cpu: ^CPU, address: u16, condition: bool) {
+	if (condition) {
+		cpu.registers.program_counter = address
 	}
 }
 
-bmi_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Negative in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+bpl_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Negative not_in cpu.registers.flags)
 }
 
-
-bne_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Zero not_in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+bmi_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Negative in cpu.registers.flags)
 }
 
-beq_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Zero in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+bne_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Zero not_in cpu.registers.flags)
 }
 
-bcc_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Carry not_in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+beq_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Zero in cpu.registers.flags)
 }
 
-bcs_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Carry in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+bcc_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Carry not_in cpu.registers.flags)
 }
 
-bvc_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Overflow in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+bcs_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Carry in cpu.registers.flags)
 }
 
-bvs_instruction :: proc(cpu: ^CPU, data: ^byte) {
-	if (.Overflow in cpu.registers.flags) {
-		offset := data^
-		cpu.registers.program_counter += u16(offset)
-	}
+bvc_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Overflow in cpu.registers.flags)
+}
+
+bvs_instruction :: proc(cpu: ^CPU, address: u16) {
+	_branch_instruction(cpu, address, .Overflow in cpu.registers.flags)
 }
 
 brk_instruction :: proc(cpu: ^CPU) {
 	stack_pc := cpu.registers.program_counter + 2
-	assert(push_byte_on_stack(cpu, byte(stack_pc & 0xFF00) >> 8))
-	assert(push_byte_on_stack(cpu, byte(stack_pc & 0x00FF)))
 
-	//maybe
+	push_byte_on_stack(cpu, byte(stack_pc & 0xFF00 >> 8))
+	push_byte_on_stack(cpu, byte(stack_pc & 0x00FF))
+
 	cpu.registers.program_counter += 1
 }
