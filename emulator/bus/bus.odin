@@ -94,7 +94,11 @@ new_bus :: proc() -> Bus {
 mirror_safe_address :: proc(address: u16) -> u16 {
 	switch address {
 		case 0x0000 ..= 0x1FFF:
-			return address % 0x0800
+			// The NES BUS has 8KB of RAM, but only 2KB of address space.
+			// The address bus is only 11 bits wide, so the 2 most significant bits are ignored.
+			// 0x7FF is the highest address in the address space.
+			// The modulo permits mirroring.
+			return address % 0x0800 
 		case:
 			panic("Not implemented yet")
 	}
