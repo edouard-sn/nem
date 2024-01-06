@@ -1,7 +1,7 @@
 package main
 
-import nem_cpu "emulator/cpu"
 import nem_bus "emulator/bus"
+import nem_cpu "emulator/cpu"
 
 main :: proc() {
 	bus := nem_bus.new_bus()

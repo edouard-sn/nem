@@ -1,8 +1,8 @@
 // Emulates a 6502 NES cpu
 package cpu
 
-import "core:fmt"
 import "../bus"
+import "core:fmt"
 
 CPU :: struct {
 	registers: CPURegisters,
@@ -66,7 +66,7 @@ write_u16 :: #force_inline proc(cpu: ^CPU, address: u16, value: u16) {
 
 push_byte_on_stack :: proc(cpu: ^CPU, value: byte) -> bool {
 	fmt.assertf(
-		cpu.registers.stack_pointer >= size_of(byte), 
+		cpu.registers.stack_pointer >= size_of(byte),
 		"Stack overflow! %x won't be pushed to the stack. size_of(byte) = %d. stack_pointer = %x\n",
 		value,
 		size_of(byte),
@@ -82,7 +82,7 @@ push_byte_on_stack :: proc(cpu: ^CPU, value: byte) -> bool {
 
 pull_byte_from_stack :: proc(cpu: ^CPU) -> byte {
 	fmt.assertf(
-		(cpu.registers.stack_pointer < 0xFF), 
+		(cpu.registers.stack_pointer < 0xFF),
 		"Stack underflow! No value will be pulled from the stack, value will be 0. stack_pointer = %x\n",
 		cpu.registers.stack_pointer,
 	)

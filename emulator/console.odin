@@ -1,7 +1,17 @@
 package emulator
 
+import "bus"
 import "cpu"
 
 Console :: struct {
-	cpu: cpu.CPU,
+	bus: ^bus.Bus,
+	cpu: ^cpu.CPU,
+}
+
+new_console :: proc(bus: ^bus.Bus, cpu: ^cpu.CPU) -> Console {
+	console := Console {
+		bus = bus,
+		cpu = cpu,
+	}
+	return &console
 }

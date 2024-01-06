@@ -61,7 +61,7 @@ Bus :: struct {
 
 new_bus :: proc() -> Bus {
 	bus: Bus
-	
+
 	bus.raw = new([CPU_MEMORY_SIZE]byte)
 
 	// CPU RAM map init
@@ -71,7 +71,7 @@ new_bus :: proc() -> Bus {
 	bus.ram_map.stack = bus.raw[STACK_BEGIN:STACK_END]
 	bus.ram_map.ram = bus.raw[RAM_BEGIN:RAM_END]
 	bus.ram_map.mirrors = bus.raw[RAM_MIRRORS_BEGIN:RAM_MIRRORS_END]
-	
+
 
 	// CPU IO Registers map init
 	bus.io_registers = bus.raw[IO_MAP_BEGIN:IO_MAP_END]
@@ -93,11 +93,11 @@ new_bus :: proc() -> Bus {
 
 mirror_safe_address :: proc(address: u16) -> u16 {
 	switch address {
-		case 0x0000..=0x1FFF:
+		case 0x0000 ..= 0x1FFF:
 			return address % 0x0800
 		case:
 			panic("Not implemented yet")
-		}
+	}
 	return 0
 }
 
