@@ -2,9 +2,6 @@
 package cpu
 
 import "core:fmt"
-import "core:math/rand"
-import "vendor:sdl2"
-// import "core:time"
 
 CPU :: struct {
 	registers: CPURegisters,
