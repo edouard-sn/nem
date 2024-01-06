@@ -1,5 +1,6 @@
 package emulator
 
+
 RAM_MAP_BEGIN :: ZERO_PAGE_BEGIN
 RAM_MAP_END :: RAM_MIRRORS_END
 ZERO_PAGE_BEGIN :: 0x0000
@@ -100,8 +101,8 @@ mirror_safe_address :: proc(address: u16) -> u16 {
 			// The modulo permits mirroring.
 			return address % 0x0800 
 		case:
-			panic("Not implemented yet")
-	}
+			return address
+		}
 	return 0
 }
 

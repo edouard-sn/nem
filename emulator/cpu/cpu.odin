@@ -3,6 +3,8 @@ package cpu
 
 import "../bus"
 import "core:fmt"
+import "vendor:sdl2"
+import "core:math/rand"
 
 CPU :: struct {
 	registers: CPURegisters,
@@ -145,4 +147,30 @@ reset_interupt :: proc(cpu: ^CPU) {
 	cpu.registers.x = 0
 	cpu.registers.accumulator = 0
 	cpu.registers.program_counter = read_u16(cpu, 0xFFFC)
+}
+
+fake_load :: proc(cpu: ^CPU, program: []byte) {
+	program_mem := cpu.memory.raw[0x0600:0x0600 + len(program)]
+
+	for b, i in program {
+		program_mem[i] = b
+	}
+	write_u16(cpu, 0xFFFC, 0x0600)
+}
+
+// This function runs the snake program conveniently
+fake_run :: proc(
+	cpu: ^CPU,
+	render_cb: proc(_: ^CPU, _: ^[32 * 3 * 32]u8, _: ^sdl2.Texture, _: ^sdl2.Renderer),
+	texture: ^sdl2.Texture,
+	renderer: ^sdl2.Renderer,
+) {
+	frame := [32 * 3 * 32]u8{}
+
+	for {
+		cpu.memory.raw[0xFE] = u8(rand.float32_range(0,16)) // Expected by the program
+		execute_instruction(cpu)
+		render_cb(cpu, &frame, texture, renderer)
+		// time.sleep(70_000)
+	}
 }
