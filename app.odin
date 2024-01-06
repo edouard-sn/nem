@@ -1,9 +1,6 @@
 package main
 
-import "core:math/rand"
-import "core:time"
 import nem_cpu "emulator/cpu"
-import "vendor:sdl2"
 
 
 snake_program :: []byte {
@@ -321,22 +318,4 @@ snake_program :: []byte {
 
 main :: proc() {
 	cpu := nem_cpu.new_cpu()
-
-	renderer := init_sdl_renderer()
-	
-	// Init basic texture (32x32 unique color)
-	texture := sdl2.CreateTexture(
-		renderer, 
-		u32(sdl2.PixelFormatEnum.RGB24), 
-		sdl2.TextureAccess.TARGET, 
-		32, 32)
-	assert(texture != nil)
-
-	rand.set_global_seed(u64(time.to_unix_nanoseconds(time.now())))
-
-	nem_cpu.fake_load(&cpu, snake_program)
-
-	nem_cpu.reset_interupt(&cpu)
-
-	nem_cpu.fake_run(&cpu, graphical_callback, texture, renderer)
 }
