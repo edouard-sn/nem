@@ -1,8 +1,8 @@
 # nem
 NES Emulator project
 
-
-The project is a WIP and has some design architecture that will be changed in the future.
+For now, only the 6502 is almost done (needs perfecting cycle-wise).
+No bus implementation or PPU has started yet.
 
 
 # References
