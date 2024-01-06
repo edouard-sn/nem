@@ -200,33 +200,32 @@ instruction_handles := [0xFF]Instruction {
 }
 
 AddressingHelper :: struct {
-	handle: proc(_: ^CPU, _: []byte) -> u16,
+	handle: proc(_: ^CPU) -> u16,
 	bytes:  uint,
 }
 addressing_helpers := [AddressMode]AddressingHelper {
-	.Implied = {handle = proc(cpu: ^CPU, _: []byte) -> u16 {return 0}, bytes = 0},
-	.Accumulator = {handle = proc(cpu: ^CPU, _: []byte) -> u16 {return u16(cpu.registers.accumulator)}, bytes = 0},
-	.Immediate = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return immediate(data)}, bytes = 1},
-	.ZeroPage = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zeropage(data)}, bytes = 1},
-	.ZeroPageX = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zeropage(data, cpu.registers.x)}, bytes = 1},
-	.ZeroPageY = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zeropage(data, cpu.registers.y)}, bytes = 1},
-	.Relative = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return relative(cpu, data)}, bytes = 1},
-	.Absolute = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data)}, bytes = 2},
-	.AbsoluteX = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data, cpu.registers.x)}, bytes = 2},
-	.AbsoluteY = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data, cpu.registers.y)}, bytes = 2},
-	.Indirect = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return absolute(data)}, bytes = 2},
-	.XIndirect = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return x_zp_indirect(cpu, data)}, bytes = 1},
-	.IndirectY = {handle = proc(cpu: ^CPU, data: []byte) -> u16 {return zp_indirect_y(cpu, data)}, bytes = 1},
+	.Implied = {handle = proc(cpu: ^CPU) -> u16 {return 0}, bytes = 0},
+	.Accumulator = {handle = proc(cpu: ^CPU) -> u16 {return u16(cpu.registers.accumulator)}, bytes = 0},
+	.Immediate = {handle = proc(cpu: ^CPU) -> u16 {return immediate(cpu)}, bytes = 1},
+	.ZeroPage = {handle = proc(cpu: ^CPU) -> u16 {return zeropage(cpu)}, bytes = 1},
+	.ZeroPageX = {handle = proc(cpu: ^CPU) -> u16 {return zeropage(cpu, cpu.registers.x)}, bytes = 1},
+	.ZeroPageY = {handle = proc(cpu: ^CPU) -> u16 {return zeropage(cpu, cpu.registers.y)}, bytes = 1},
+	.Relative = {handle = proc(cpu: ^CPU) -> u16 {return relative(cpu)}, bytes = 1},
+	.Absolute = {handle = proc(cpu: ^CPU) -> u16 {return absolute(cpu)}, bytes = 2},
+	.AbsoluteX = {handle = proc(cpu: ^CPU) -> u16 {return absolute(cpu, cpu.registers.x)}, bytes = 2},
+	.AbsoluteY = {handle = proc(cpu: ^CPU) -> u16 {return absolute(cpu, cpu.registers.y)}, bytes = 2},
+	.Indirect = {handle = proc(cpu: ^CPU) -> u16 {return absolute(cpu)}, bytes = 2},
+	.XIndirect = {handle = proc(cpu: ^CPU) -> u16 {return x_zp_indirect(cpu)}, bytes = 1},
+	.IndirectY = {handle = proc(cpu: ^CPU) -> u16 {return zp_indirect_y(cpu)}, bytes = 1},
 }
 
 execute_instruction :: proc(cpu: ^CPU) {
-	op_code := cpu.memory.raw[cpu.registers.program_counter]
-	data := cpu.memory.raw[cpu.registers.program_counter + 1:]
+	op_code := read_byte(cpu, cpu.registers.program_counter)
 	instruction := instruction_handles[op_code]
 
 	if (instruction.handle != nil) {
 		addressing := addressing_helpers[instruction.mode]
-		address := addressing.handle(cpu, data)
+		address := addressing.handle(cpu)
 
 		// Pages on the 6502 are 256 bytes long. If the address crosses a page boundary, we add an extra cycle when needed.
 		if (instruction.cycle_page_crossed && (address & 0xFF00) != (cpu.registers.program_counter & 0xFF00)) {
@@ -246,7 +245,8 @@ execute_instruction :: proc(cpu: ^CPU) {
 					ins(cpu, &cpu.registers.accumulator)
 				}
 				 else {
-					ins(cpu, &cpu.memory.raw[address])
+					real_address := bus.mirror_safe_address(address)
+					ins(cpu, &cpu.memory.raw[real_address])
 				}
 		}
 		cpu.cycles += instruction.cycles
