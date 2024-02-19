@@ -29,5 +29,5 @@ nestest_compliance :: proc(t: ^testing.T) {
 
 	testing.expect_value(t, read_byte(&cpu, 0x02), 0)
 	testing.expect_value(t, read_byte(&cpu, 0x03), 0)
-    testing.log(t, "All 256 instructions should work !")
+	testing.log(t, "All 256 instructions should work !")
 }
