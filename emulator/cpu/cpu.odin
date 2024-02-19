@@ -95,7 +95,7 @@ pull_u16_from_stack :: #force_inline proc(cpu: ^CPU) -> u16 {
 	return u16(pull_byte_from_stack(cpu)) | (u16(pull_byte_from_stack(cpu)) << 8)
 }
 
-x_zp_indirect :: proc(cpu: ^CPU) -> u16 {
+x_zp_indirect :: proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
 	temp_address := (u16(read_byte(cpu, operand_addr)) + u16(cpu.registers.x))
 
@@ -103,41 +103,58 @@ x_zp_indirect :: proc(cpu: ^CPU) -> u16 {
 	lo := read_byte(cpu, temp_address & 0xFF)
 	hi := read_byte(cpu, (temp_address + 1) & 0xFF)
 
-	return (u16(hi) << 8 | u16(lo))
+	return (u16(hi) << 8 | u16(lo)), false
 }
 
-zp_indirect_y :: proc(cpu: ^CPU) -> u16 {
+zp_indirect_y :: proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
 	temp_address := read_byte(cpu, operand_addr)
 
 	lo := read_byte(cpu, u16(temp_address))
 	hi := read_byte(cpu, u16(temp_address + 1))
-
-	return (u16(hi) << 8 | u16(lo)) + u16(cpu.registers.y)
+	no_offset := (u16(hi) << 8 | u16(lo))
+	target := no_offset + u16(cpu.registers.y)
+	
+	return target, (u16(lo) + u16(cpu.registers.y)) > 0xFF
 }
 
-zeropage :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> u16 {
+indirect :: proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	return u16(read_byte(cpu, operand_addr)) + u16(indexed_value)
+
+	lo := read_byte(cpu, u16(operand_addr))
+	hi := read_byte(cpu, u16(operand_addr + 1))
+	address := (u16(hi) << 8 | u16(lo))
+
+	target_lo := read_byte(cpu, address)
+	target_hi := read_byte(cpu, ((address + 1) & 0xFF) | (address & 0xFF00)) // Wrap over page
+	target := (u16(target_hi) << 8) | u16(target_lo)
+
+	return target, false
 }
 
-immediate :: #force_inline proc(cpu: ^CPU) -> u16 {
+zeropage :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	return u16(read_byte(cpu, operand_addr))
+	// Wrap around zeropage, no page boundary cross
+	return (u16(read_byte(cpu, operand_addr)) + u16(indexed_value)) & 0xFF, false 
 }
 
-absolute :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> u16 {
+immediate :: #force_inline proc(cpu: ^CPU) -> (u16, bool) {
+	operand_addr := cpu.registers.program_counter + 1
+	return u16(read_byte(cpu, operand_addr)), false
+}
+
+absolute :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
 	lo := read_byte(cpu, operand_addr)
 	hi := read_byte(cpu, operand_addr + 1)
 
-	return u16(hi) << 8 | u16(lo) + u16(indexed_value)
+	return (u16(hi) << 8 | u16(lo)) + u16(indexed_value), indexed_value > (0xFF - lo)
 }
 
-relative :: #force_inline proc(cpu: ^CPU) -> u16 {
+relative :: #force_inline proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
 	offset := read_byte(cpu, operand_addr)
-	return u16(i16(cpu.registers.program_counter + 2) + i16(i8(offset)))
+	return u16(i16(cpu.registers.program_counter + 2) + i16(i8(offset))), false
 }
 
 reset_interupt :: proc(cpu: ^CPU) {
