@@ -72,7 +72,7 @@ handle_instruction :: proc(cpu: ^CPU) {
 
 		execute_with_address_resolution(cpu, cpu.memory, &instruction, address)
 
-		cpu.cycles += instruction.cycles // TODO: Semi-accurate cycles // Is dogshit for now
+		cpu.cycles += instruction.cycles
 
 		if (instruction.changes_pc == false) {
 			cpu.registers.program_counter += 1 + u16(addressing.bytes) // +1 for the op-code
