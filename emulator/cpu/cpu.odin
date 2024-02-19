@@ -115,7 +115,7 @@ zp_indirect_y :: proc(cpu: ^CPU) -> (u16, bool) {
 	no_offset := (u16(hi) << 8 | u16(lo))
 	target := no_offset + u16(cpu.registers.y)
 	
-	return target, (u16(lo) + u16(cpu.registers.y)) > 0xFF
+	return target, cpu.registers.y > (0xFF - lo)
 }
 
 indirect :: proc(cpu: ^CPU) -> (u16, bool) {
