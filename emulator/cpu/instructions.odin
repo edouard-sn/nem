@@ -3,22 +3,6 @@ package cpu
 import nbus "../bus"
 import "core:fmt"
 
-@(private)
-AddressMode :: enum {
-	Accumulator,
-	Absolute,
-	AbsoluteX,
-	AbsoluteY,
-	Immediate,
-	Implied,
-	Indirect,
-	XIndirect,
-	IndirectY,
-	Relative,
-	ZeroPage,
-	ZeroPageX,
-	ZeroPageY,
-}
 
 // NOTE: Would it be worth it to remove the use of union so we can make the array const?
 InstructionHandle :: union {
@@ -47,230 +31,7 @@ Instruction :: struct {
 	changes_pc:         bool,
 }
 
-instruction_handles := [0xFF]Instruction {
-	0x00 = Instruction{name = "BRK", handle = brk_instruction, cycles = 7, mode = .Implied, changes_pc = true},
-	0x01 = Instruction{name = "ORA", handle = ora_instruction, cycles = 6, mode = .XIndirect},
-	0x05 = Instruction{name = "ORA", handle = ora_instruction, cycles = 3, mode = .ZeroPage},
-	0x06 = Instruction{name = "ASL", handle = asl_instruction, cycles = 5, mode = .ZeroPage},
-	0x08 = Instruction{name = "PHP", handle = php_instruction, cycles = 3, mode = .Implied},
-	0x09 = Instruction{name = "ORA", handle = ora_instruction, cycles = 2, mode = .Immediate},
-	0x0A = Instruction{name = "ASL", handle = asl_instruction, cycles = 2, mode = .Accumulator},
-	0x0D = Instruction{name = "ORA", handle = ora_instruction, cycles = 4, mode = .Absolute},
-	0x0E = Instruction{name = "ASL", handle = asl_instruction, cycles = 6, mode = .Absolute},
-	0x10 = Instruction {
-		name = "BPL",
-		handle = bpl_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0x11 = Instruction{name = "ORA", handle = ora_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x15 = Instruction{name = "ORA", handle = ora_instruction, cycles = 4, mode = .ZeroPageX},
-	0x16 = Instruction{name = "ASL", handle = asl_instruction, cycles = 6, mode = .ZeroPageX},
-	0x18 = Instruction{name = "CLC", handle = clc_instruction, cycles = 2, mode = .Implied},
-	0x19 = Instruction{name = "ORA", handle = ora_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x1D = Instruction{name = "ORA", handle = ora_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x1E = Instruction{name = "ASL", handle = asl_instruction, cycles = 7, mode = .AbsoluteX},
-	0x20 = Instruction{name = "JSR", handle = jsr_instruction, cycles = 6, mode = .Absolute, changes_pc = true},
-	0x21 = Instruction{name = "AND", handle = and_instruction, cycles = 6, mode = .XIndirect},
-	0x24 = Instruction{name = "BIT", handle = bit_instruction, cycles = 3, mode = .ZeroPage},
-	0x25 = Instruction{name = "AND", handle = and_instruction, cycles = 3, mode = .ZeroPage},
-	0x26 = Instruction{name = "ROL", handle = rol_instruction, cycles = 5, mode = .ZeroPage},
-	0x28 = Instruction{name = "PLP", handle = plp_instruction, cycles = 4, mode = .Implied},
-	0x29 = Instruction{name = "AND", handle = and_instruction, cycles = 2, mode = .Immediate},
-	0x2A = Instruction{name = "ROL", handle = rol_instruction, cycles = 2, mode = .Accumulator},
-	0x2C = Instruction{name = "BIT", handle = bit_instruction, cycles = 4, mode = .Absolute},
-	0x2D = Instruction{name = "AND", handle = and_instruction, cycles = 4, mode = .Absolute},
-	0x2E = Instruction{name = "ROL", handle = rol_instruction, cycles = 6, mode = .Absolute},
-	0x30 = Instruction {
-		name = "BMI",
-		handle = bmi_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0x31 = Instruction{name = "AND", handle = and_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x35 = Instruction{name = "AND", handle = and_instruction, cycles = 4, mode = .ZeroPageX},
-	0x36 = Instruction{name = "ROL", handle = rol_instruction, cycles = 6, mode = .ZeroPageX},
-	0x38 = Instruction{name = "SEC", handle = sec_instruction, cycles = 2, mode = .Implied},
-	0x39 = Instruction{name = "AND", handle = and_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x3D = Instruction{name = "AND", handle = and_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x3E = Instruction{name = "ROL", handle = rol_instruction, cycles = 7, mode = .AbsoluteX},
-	0x40 = Instruction{name = "RTI", handle = rti_instruction, cycles = 6, mode = .Implied, changes_pc = true},
-	0x41 = Instruction{name = "EOR", handle = eor_instruction, cycles = 6, mode = .XIndirect},
-	0x45 = Instruction{name = "EOR", handle = eor_instruction, cycles = 3, mode = .ZeroPage},
-	0x46 = Instruction{name = "LSR", handle = lsr_instruction, cycles = 5, mode = .ZeroPage},
-	0x48 = Instruction{name = "PHA", handle = pha_instruction, cycles = 3, mode = .Implied},
-	0x49 = Instruction{name = "EOR", handle = eor_instruction, cycles = 2, mode = .Immediate},
-	0x4A = Instruction{name = "LSR", handle = lsr_instruction, cycles = 2, mode = .Accumulator},
-	0x4C = Instruction{name = "JMP", handle = jmp_instruction, cycles = 3, mode = .Absolute, changes_pc = true},
-	0x4D = Instruction{name = "EOR", handle = eor_instruction, cycles = 4, mode = .Absolute},
-	0x4E = Instruction{name = "LSR", handle = lsr_instruction, cycles = 6, mode = .Absolute},
-	0x50 = Instruction {
-		name = "BVC",
-		handle = bvc_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0x51 = Instruction{name = "EOR", handle = eor_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x55 = Instruction{name = "EOR", handle = eor_instruction, cycles = 4, mode = .ZeroPageX},
-	0x56 = Instruction{name = "LSR", handle = lsr_instruction, cycles = 6, mode = .ZeroPageX},
-	0x58 = Instruction{name = "CLI", handle = cli_instruction, cycles = 2, mode = .Implied},
-	0x59 = Instruction{name = "EOR", handle = eor_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x5D = Instruction{name = "EOR", handle = eor_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x5E = Instruction{name = "LSR", handle = lsr_instruction, cycles = 7, mode = .AbsoluteX},
-	0x60 = Instruction{name = "RTS", handle = rts_instruction, cycles = 6, mode = .Implied, changes_pc = true},
-	0x61 = Instruction{name = "ADC", handle = adc_instruction, cycles = 6, mode = .XIndirect},
-	0x65 = Instruction{name = "ADC", handle = adc_instruction, cycles = 3, mode = .ZeroPage},
-	0x66 = Instruction{name = "ROR", handle = ror_instruction, cycles = 5, mode = .ZeroPage},
-	0x68 = Instruction{name = "PLA", handle = pla_instruction, cycles = 4, mode = .Implied},
-	0x69 = Instruction{name = "ADC", handle = adc_instruction, cycles = 2, mode = .Immediate},
-	0x6A = Instruction{name = "ROR", handle = ror_instruction, cycles = 2, mode = .Accumulator},
-	0x6C = Instruction{name = "JMP", handle = jmp_instruction, cycles = 5, mode = .Indirect, changes_pc = true},
-	0x6D = Instruction{name = "ADC", handle = adc_instruction, cycles = 4, mode = .Absolute},
-	0x6E = Instruction{name = "ROR", handle = ror_instruction, cycles = 6, mode = .Absolute},
-	0x70 = Instruction {
-		name = "BVS",
-		handle = bvs_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0x71 = Instruction{name = "ADC", handle = adc_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0x75 = Instruction{name = "ADC", handle = adc_instruction, cycles = 4, mode = .ZeroPageX},
-	0x76 = Instruction{name = "ROR", handle = ror_instruction, cycles = 6, mode = .ZeroPageX},
-	0x78 = Instruction{name = "SEI", handle = sei_instruction, cycles = 2, mode = .Implied},
-	0x79 = Instruction{name = "ADC", handle = adc_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0x7D = Instruction{name = "ADC", handle = adc_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0x7E = Instruction{name = "ROR", handle = ror_instruction, cycles = 7, mode = .AbsoluteX},
-	0x81 = Instruction{name = "STA", handle = sta_instruction, cycles = 6, mode = .XIndirect},
-	0x84 = Instruction{name = "STY", handle = sty_instruction, cycles = 3, mode = .ZeroPage},
-	0x85 = Instruction{name = "STA", handle = sta_instruction, cycles = 3, mode = .ZeroPage},
-	0x86 = Instruction{name = "STX", handle = stx_instruction, cycles = 3, mode = .ZeroPage},
-	0x88 = Instruction{name = "DEY", handle = dey_instruction, cycles = 2, mode = .Implied},
-	0x8A = Instruction{name = "TXA", handle = txa_instruction, cycles = 2, mode = .Implied},
-	0x8C = Instruction{name = "STY", handle = sty_instruction, cycles = 4, mode = .Absolute},
-	0x8D = Instruction{name = "STA", handle = sta_instruction, cycles = 4, mode = .Absolute},
-	0x8E = Instruction{name = "STX", handle = stx_instruction, cycles = 4, mode = .Absolute},
-	0x90 = Instruction {
-		name = "BCC",
-		handle = bcc_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0x91 = Instruction{name = "STA", handle = sta_instruction, cycles = 6, mode = .IndirectY},
-	0x94 = Instruction{name = "STY", handle = sty_instruction, cycles = 4, mode = .ZeroPageX},
-	0x95 = Instruction{name = "STA", handle = sta_instruction, cycles = 4, mode = .ZeroPageX},
-	0x96 = Instruction{name = "STX", handle = stx_instruction, cycles = 4, mode = .ZeroPageY},
-	0x98 = Instruction{name = "TYA", handle = tya_instruction, cycles = 2, mode = .Implied},
-	0x99 = Instruction{name = "STA", handle = sta_instruction, cycles = 5, mode = .AbsoluteY},
-	0x9A = Instruction{name = "TXS", handle = txs_instruction, cycles = 2, mode = .Implied},
-	0x9D = Instruction{name = "STA", handle = sta_instruction, cycles = 5, mode = .AbsoluteX},
-	0xA0 = Instruction{name = "LDY", handle = ldy_instruction, cycles = 2, mode = .Immediate},
-	0xA1 = Instruction{name = "LDA", handle = lda_instruction, cycles = 6, mode = .XIndirect},
-	0xA2 = Instruction{name = "LDX", handle = ldx_instruction, cycles = 2, mode = .Immediate},
-	0xA4 = Instruction{name = "LDY", handle = ldy_instruction, cycles = 3, mode = .ZeroPage},
-	0xA5 = Instruction{name = "LDA", handle = lda_instruction, cycles = 3, mode = .ZeroPage},
-	0xA6 = Instruction{name = "LDX", handle = ldx_instruction, cycles = 3, mode = .ZeroPage},
-	0xA8 = Instruction{name = "TAY", handle = tay_instruction, cycles = 2, mode = .Implied},
-	0xA9 = Instruction{name = "LDA", handle = lda_instruction, cycles = 2, mode = .Immediate},
-	0xAA = Instruction{name = "TAX", handle = tax_instruction, cycles = 2, mode = .Implied},
-	0xAC = Instruction{name = "LDY", handle = ldy_instruction, cycles = 4, mode = .Absolute},
-	0xAD = Instruction{name = "LDA", handle = lda_instruction, cycles = 4, mode = .Absolute},
-	0xAE = Instruction{name = "LDX", handle = ldx_instruction, cycles = 4, mode = .Absolute},
-	0xB0 = Instruction {
-		name = "BCS",
-		handle = bcs_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0xB1 = Instruction{name = "LDA", handle = lda_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0xB4 = Instruction{name = "LDY", handle = ldy_instruction, cycles = 4, mode = .ZeroPageX},
-	0xB5 = Instruction{name = "LDA", handle = lda_instruction, cycles = 4, mode = .ZeroPageX},
-	0xB6 = Instruction{name = "LDX", handle = ldx_instruction, cycles = 4, mode = .ZeroPageY},
-	0xB8 = Instruction{name = "CLV", handle = clv_instruction, cycles = 2, mode = .Implied},
-	0xB9 = Instruction{name = "LDA", handle = lda_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xBA = Instruction{name = "TSX", handle = tsx_instruction, cycles = 2, mode = .Implied},
-	0xBC = Instruction{name = "LDY", handle = ldy_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xBD = Instruction{name = "LDA", handle = lda_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xBE = Instruction{name = "LDX", handle = ldx_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xC0 = Instruction{name = "CPY", handle = cpy_instruction, cycles = 2, mode = .Immediate},
-	0xC1 = Instruction{name = "CMP", handle = cmp_instruction, cycles = 6, mode = .XIndirect},
-	0xC4 = Instruction{name = "CPY", handle = cpy_instruction, cycles = 3, mode = .ZeroPage},
-	0xC5 = Instruction{name = "CMP", handle = cmp_instruction, cycles = 3, mode = .ZeroPage},
-	0xC6 = Instruction{name = "DEC", handle = dec_instruction, cycles = 5, mode = .ZeroPage},
-	0xC8 = Instruction{name = "INY", handle = iny_instruction, cycles = 2, mode = .Implied},
-	0xC9 = Instruction{name = "CMP", handle = cmp_instruction, cycles = 2, mode = .Immediate},
-	0xCA = Instruction{name = "DEX", handle = dex_instruction, cycles = 2, mode = .Implied},
-	0xCC = Instruction{name = "CPY", handle = cpy_instruction, cycles = 4, mode = .Absolute},
-	0xCD = Instruction{name = "CMP", handle = cmp_instruction, cycles = 4, mode = .Absolute},
-	0xCE = Instruction{name = "DEC", handle = dec_instruction, cycles = 6, mode = .Absolute},
-	0xD0 = Instruction {
-		name = "BNE",
-		handle = bne_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0xD1 = Instruction{name = "CMP", handle = cmp_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0xD5 = Instruction{name = "CMP", handle = cmp_instruction, cycles = 4, mode = .ZeroPageX},
-	0xD6 = Instruction{name = "DEC", handle = dec_instruction, cycles = 6, mode = .ZeroPageX},
-	0xD8 = Instruction{name = "CLD", handle = cld_instruction, cycles = 2, mode = .Implied},
-	0xD9 = Instruction{name = "CMP", handle = cmp_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xDD = Instruction{name = "CMP", handle = cmp_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xDE = Instruction{name = "DEC", handle = dec_instruction, cycles = 7, mode = .AbsoluteX},
-	0xE0 = Instruction{name = "CPX", handle = cpx_instruction, cycles = 2, mode = .Immediate},
-	0xE1 = Instruction{name = "SBC", handle = sbc_instruction, cycles = 6, mode = .XIndirect},
-	0xE4 = Instruction{name = "CPX", handle = cpx_instruction, cycles = 3, mode = .ZeroPage},
-	0xE5 = Instruction{name = "SBC", handle = sbc_instruction, cycles = 3, mode = .ZeroPage},
-	0xE6 = Instruction{name = "INC", handle = inc_instruction, cycles = 5, mode = .ZeroPage},
-	0xE8 = Instruction{name = "INX", handle = inx_instruction, cycles = 2, mode = .Implied},
-	0xE9 = Instruction{name = "SBC", handle = sbc_instruction, cycles = 2, mode = .Immediate},
-	0xEA = Instruction{name = "NOP", handle = nop_instruction, cycles = 2, mode = .Implied},
-	0xEC = Instruction{name = "CPX", handle = cpx_instruction, cycles = 4, mode = .Absolute},
-	0xED = Instruction{name = "SBC", handle = sbc_instruction, cycles = 4, mode = .Absolute},
-	0xEE = Instruction{name = "INC", handle = inc_instruction, cycles = 6, mode = .Absolute},
-	0xF0 = Instruction {
-		name = "BEQ",
-		handle = beq_instruction,
-		cycles = 2,
-		mode = .Relative,
-		changes_pc = true,
-	},
-	0xF1 = Instruction{name = "SBC", handle = sbc_instruction, cycles = 5, mode = .IndirectY, cycle_page_crossed = true},
-	0xF5 = Instruction{name = "SBC", handle = sbc_instruction, cycles = 4, mode = .ZeroPageX},
-	0xF6 = Instruction{name = "INC", handle = inc_instruction, cycles = 6, mode = .ZeroPageX},
-	0xF8 = Instruction{name = "SED", handle = sed_instruction, cycles = 2, mode = .Implied},
-	0xF9 = Instruction{name = "SBC", handle = sbc_instruction, cycles = 4, mode = .AbsoluteY, cycle_page_crossed = true},
-	0xFD = Instruction{name = "SBC", handle = sbc_instruction, cycles = 4, mode = .AbsoluteX, cycle_page_crossed = true},
-	0xFE = Instruction{name = "INC", handle = inc_instruction, cycles = 7, mode = .AbsoluteX},
-}
-
-AddressingHelper :: struct {
-	handle: proc(_: ^CPU) -> (address:u16, page_crossed:bool),
-	bytes:  uint,
-}
-addressing_helpers := [AddressMode]AddressingHelper {
-	.Implied = {handle = proc(cpu: ^CPU) -> (u16, bool) {return 0, false}, bytes = 0},
-	.Accumulator = {handle = proc(cpu: ^CPU) -> (u16, bool) {return u16(cpu.registers.accumulator), false}, bytes = 0},
-	.Immediate = {handle = proc(cpu: ^CPU) -> (u16, bool) {return immediate(cpu)}, bytes = 1},
-	.ZeroPage = {handle = proc(cpu: ^CPU) -> (u16, bool) {return zeropage(cpu)}, bytes = 1},
-	.ZeroPageX = {handle = proc(cpu: ^CPU) -> (u16, bool) {return zeropage(cpu, cpu.registers.x)}, bytes = 1},
-	.ZeroPageY = {handle = proc(cpu: ^CPU) -> (u16, bool) {return zeropage(cpu, cpu.registers.y)}, bytes = 1},
-	.Relative = {handle = proc(cpu: ^CPU) -> (u16, bool) {return relative(cpu)}, bytes = 1},
-	.Absolute = {handle = proc(cpu: ^CPU) -> (u16, bool) {return absolute(cpu)}, bytes = 2},
-	.AbsoluteX = {handle = proc(cpu: ^CPU) -> (u16, bool) {return absolute(cpu, cpu.registers.x)}, bytes = 2},
-	.AbsoluteY = {handle = proc(cpu: ^CPU) -> (u16, bool) {return absolute(cpu, cpu.registers.y)}, bytes = 2},
-	.Indirect = {handle = proc(cpu: ^CPU) -> (u16, bool) {return indirect(cpu)}, bytes = 2},
-	.XIndirect = {handle = proc(cpu: ^CPU) -> (u16, bool) {return x_zp_indirect(cpu)}, bytes = 1},
-	.IndirectY = {handle = proc(cpu: ^CPU) -> (u16, bool) {return zp_indirect_y(cpu)}, bytes = 1},
-}
-
-
-_execute_instruction :: proc(cpu: ^CPU, bus: ^nbus.Bus, instruction: ^Instruction, address: u16) {
+execute_with_address_resolution :: proc(cpu: ^CPU, bus: ^nbus.Bus, instruction: ^Instruction, address: u16) {
 	switch ins in instruction.handle {
 		case proc(_: ^CPU):
 			ins(cpu)
@@ -291,80 +52,8 @@ _execute_instruction :: proc(cpu: ^CPU, bus: ^nbus.Bus, instruction: ^Instructio
 	}
 }
 
-dump_instruction :: proc(cpu: ^CPU, instruction: ^Instruction, addressing: ^AddressingHelper, address: u16) {
-	fmt.printf("%04X  ", cpu.registers.program_counter)
-	// Show operands
-	for i in 0 ..= addressing.bytes {
-		fmt.printf("%02X ", read_byte(cpu, cpu.registers.program_counter + u16(i)))
-	}
-	fmt.printf("%*s", (3 - addressing.bytes) * 2 + 1 - addressing.bytes, "")
-	fmt.printf("%s", instruction.name)
 
-	// Show addressing mode
-	switch instruction.mode {
-		case .Implied:
-			fmt.printf("                             ")
-		case .Accumulator:
-			fmt.printf(" A                           ")
-		case .Immediate:
-			fmt.printf(" #$%02X                        ", u8(address))
-		case .ZeroPage:
-			fmt.printf(" $%02X                         ", u8(address))
-		case .ZeroPageX:
-			fmt.printf(" $%02X,X                       ", u8(address))
-		case .ZeroPageY:
-			fmt.printf(" $%02X,Y                       ", u8(address))
-		case .Relative:
-			fmt.printf(" $%04X                       ", address)
-		case .Absolute:
-			fmt.printf(" $%04X                       ", address)
-		case .AbsoluteX:
-			fmt.printf(" $%04X,X                     ", address)
-		case .AbsoluteY:
-			operand_addr := cpu.registers.program_counter + 1
-			lo := read_byte(cpu, operand_addr)
-			hi := read_byte(cpu, operand_addr + 1)
-			no_offset := (u16(hi) << 8) | u16(lo)
-
-			fmt.printf(" $%04X,Y @ %04X = %02X         ", no_offset, address, read_byte(cpu, address))
-		case .Indirect:
-			op := cpu.registers.program_counter + 1
-			lo := read_byte(cpu, u16(op))
-			hi := read_byte(cpu, u16(op + 1))
-			mid_address := (u16(hi) << 8 | u16(lo))		
-			fmt.printf(" ($%04X) = %04X              ", mid_address, address)
-		case .XIndirect:
-			op := read_byte(cpu, cpu.registers.program_counter + 1)
-			offset := op + cpu.registers.x
-			fmt.printf(" ($%02X,X) @ %02X = %04X = %02X    ", op, offset, address, read_byte(cpu, address))
-		case .IndirectY:
-		operand_addr := cpu.registers.program_counter + 1
-		temp_address := read_byte(cpu, operand_addr)
-
-		lo := read_byte(cpu, u16(temp_address))
-		hi := read_byte(cpu, u16(temp_address + 1))
-		target_no_offset := (u16(hi) << 8 | u16(lo)) 
-		target := target_no_offset + u16(cpu.registers.y)
-	
-		fmt.printf(" ($%02X),Y = %04X @ %04X = %02X  ", read_byte(cpu, operand_addr), target_no_offset, target, read_byte(cpu, target))
-	}
-
-	// Show registers
-	fmt.printf(
-		"A:%02X X:%02X Y:%02X P:%02X SP:%02X PPU:% 3d,% 3d CYC:%d\n",
-		cpu.registers.accumulator,
-		cpu.registers.x,
-		cpu.registers.y,
-		cpu.registers.flags,
-		cpu.registers.stack_pointer,
-		0,
-		0,
-		cpu.cycles,
-	)
-}
-
-
-execute_instruction :: proc(cpu: ^CPU) {
+handle_instruction :: proc(cpu: ^CPU) {
 	op_code := read_byte(cpu, cpu.registers.program_counter)
 	instruction := instruction_handles[op_code]
 
@@ -381,8 +70,7 @@ execute_instruction :: proc(cpu: ^CPU) {
 			cpu.cycles += 1
 		}
 
-
-		_execute_instruction(cpu, cpu.memory, &instruction, address)
+		execute_with_address_resolution(cpu, cpu.memory, &instruction, address)
 
 		cpu.cycles += instruction.cycles // TODO: Semi-accurate cycles // Is dogshit for now
 
@@ -398,18 +86,16 @@ execute_instruction :: proc(cpu: ^CPU) {
 
 
 @(private)
-_set_mask :: #force_inline proc(flags: ^CPUFlagRegistry, mask: CPUFlagRegistry, value := true) {
-	flags^ = value ? (flags^ | mask) : (flags^ & ~mask) 
+_set_mask :: #force_inline proc(flags: ^ProcStatus, mask: ProcStatus, value := true) {
+	flags^ = value ? (flags^ | mask) : (flags^ & ~mask)
 }
 
 // Sets the Negative or Zero flag depending on nb
 @(private)
-_zero_or_neg_flags :: #force_inline proc(flags: ^CPUFlagRegistry, nb: byte) {
+_zero_or_neg_flags :: #force_inline proc(flags: ^ProcStatus, nb: byte) {
 	_set_mask(flags, {.Zero}, nb == 0)
 	_set_mask(flags, {.Negative}, i8(nb) < 0)
 }
-
-// Implied instructions
 
 tax_instruction :: proc(cpu: ^CPU) {
 	cpu.registers.x = cpu.registers.accumulator
@@ -478,7 +164,7 @@ pla_instruction :: proc(cpu: ^CPU) {
 
 plp_instruction :: proc(cpu: ^CPU) {
 	break_bit5_save := (cpu.registers.flags & {.Break, .Bit5})
-	cpu.registers.flags = transmute(CPUFlagRegistry)pull_byte_from_stack(cpu) & ~{.Break, .Bit5}
+	cpu.registers.flags = transmute(ProcStatus)pull_byte_from_stack(cpu) & ~{.Break, .Bit5}
 	cpu.registers.flags |= break_bit5_save
 }
 
@@ -549,7 +235,7 @@ eor_instruction :: proc(cpu: ^CPU, data: ^byte) {
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-_cmp_instruction :: proc(flags: ^CPUFlagRegistry, lhs: byte, rhs: byte) {
+_cmp_instruction :: proc(flags: ^ProcStatus, lhs: byte, rhs: byte) {
 	_set_mask(flags, {.Carry}, lhs >= rhs)
 	sub := lhs - rhs
 	_zero_or_neg_flags(flags, sub)
@@ -628,7 +314,8 @@ ror_instruction :: proc(cpu: ^CPU, data: ^byte) {
 
 rti_instruction :: proc(cpu: ^CPU) {
 	// ignore break and bit5 inline lol
-	cpu.registers.flags = (transmute(CPUFlagRegistry)pull_byte_from_stack(cpu) & ~{.Break, .Bit5}) | (cpu.registers.flags & {.Break, .Bit5})
+	cpu.registers.flags =
+		(transmute(ProcStatus)pull_byte_from_stack(cpu) & ~{.Break, .Bit5}) | (cpu.registers.flags & {.Break, .Bit5})
 	cpu.registers.program_counter = pull_u16_from_stack(cpu)
 }
 
@@ -740,4 +427,113 @@ brk_instruction :: proc(cpu: ^CPU) {
 	push_byte_on_stack(cpu, byte(stack_pc & 0x00FF))
 
 	cpu.registers.program_counter += 1
+}
+
+jam_instruction :: proc(cpu: ^CPU) {
+	// TODO: Will change JAM behavior
+
+	panic("NES jammed :(")
+}
+
+slo_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	asl_instruction(cpu, data)
+	ora_instruction(cpu, data)
+}
+
+anc_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	and_instruction(cpu, data)
+	_set_mask(&cpu.registers.flags, {.Carry}, (data^ & 0b1000_0000 != 0))
+}
+
+rla_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	rol_instruction(cpu, data)
+	and_instruction(cpu, data)
+}
+
+sre_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	lsr_instruction(cpu, data)
+	eor_instruction(cpu, data)
+}
+
+alr_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	and_instruction(cpu, data)
+	lsr_instruction(cpu, &cpu.registers.accumulator)
+}
+
+rra_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	ror_instruction(cpu, data)
+	adc_instruction(cpu, data)
+}
+
+arr_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	cpu.registers.accumulator &= data^
+	cpu.registers.accumulator >>= 1
+	cpu.registers.accumulator |= u8(.Carry in cpu.registers.flags) << 7
+
+	_set_mask(&cpu.registers.flags, {.Negative}, .Carry in cpu.registers.flags)
+	_set_mask(&cpu.registers.flags, {.Zero}, cpu.registers.accumulator == 0)
+	_set_mask(&cpu.registers.flags, {.Carry}, ((cpu.registers.accumulator >> 6) & 1) > 0) // Old 7th bit goes into carry
+
+	// http://forum.6502.org/viewtopic.php?f=4&t=3493&start=105#p44620
+	overflow := ((cpu.registers.accumulator >> 5) & 1) ~ ((cpu.registers.accumulator >> 6) & 1)
+	_set_mask(&cpu.registers.flags, {.Overflow}, overflow > 0)
+}
+
+sax_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	data^ = cpu.registers.accumulator & cpu.registers.x
+}
+
+xaa_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	magic := #config(XAA_MAGIC, u8(0xEE))
+	cpu.registers.accumulator = ((cpu.registers.accumulator | magic) & cpu.registers.x) & data^
+	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
+}
+
+ahx_instruction :: proc(cpu: ^CPU, address: u16) {
+	ah := u8((address + 1) >> 8)
+	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.accumulator & cpu.registers.x & ah
+}
+
+tas_instruction :: proc(cpu: ^CPU, address: u16) {
+	ah := u8((address + 1) >> 8)
+	cpu.registers.stack_pointer = cpu.registers.accumulator & cpu.registers.x
+	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.stack_pointer & ah
+}
+
+shy_instruction :: proc(cpu: ^CPU, address: u16) {
+	ah := u8((address + 1) >> 8)
+	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.y & ah
+}
+
+shx_instruction :: proc(cpu: ^CPU, address: u16) {
+	ah := u8((address + 1) >> 8)
+	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.x & ah
+}
+
+lax_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	cpu.registers.accumulator = data^
+	cpu.registers.x = data^
+	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
+}
+
+las_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	cpu.registers.x = data^ & cpu.registers.stack_pointer
+	cpu.registers.accumulator = cpu.registers.x
+	cpu.registers.stack_pointer = cpu.registers.x
+	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
+}
+
+dcp_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	dec_instruction(cpu, data)
+	cmp_instruction(cpu, data)
+}
+
+sbx_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	cpu.registers.x = cpu.registers.accumulator & cpu.registers.x - data^
+	cmp_instruction(cpu, &cpu.registers.x)
+}
+
+isb_instruction :: proc(cpu: ^CPU, data: ^byte) {
+	inc_instruction(cpu, data)
+	sbc_instruction(cpu, data)
 }

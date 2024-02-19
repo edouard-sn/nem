@@ -11,7 +11,7 @@ CPU_STACK_BEGIN :: 0x0100
 CPU_STACK_END :: 0x0200
 CPU_RAM_BEGIN :: 0x0200
 CPU_RAM_END :: 0x0800
-// RAM_MIRRORS_BEGIN :: 0x0800
+RAM_MIRRORS_BEGIN :: 0x0800
 CPU_RAM_MIRRORS_END :: 0x2000
 
 IO_MAP_BEGIN :: IO_FIRST_BEGIN
@@ -45,16 +45,7 @@ Bus :: struct {
 		zero_page: []byte,
 		stack:     []byte,
 		ram:       []byte,
-		// mirrors:   []byte,
 	},
-	// io_registers:     []byte,
-	// io_registers_map: struct {
-	// 	first:   []byte,
-	// 	mirrors: []byte,
-	// 	second:  []byte,
-	// },
-	// expansion_rom:    []byte,
-	// sram:             []byte,
 	prg_rom:  []byte,
 }
 
@@ -73,19 +64,6 @@ new_bus :: proc() -> Bus {
 
 	bus.prg_rom = bus.raw[PRG_ROM_LOWER_BEGIN:PRG_ROM_UPPER_END]
 
-	// CPU IO Registers map init
-	// bus.io_registers = bus.raw[IO_MAP_BEGIN:IO_MAP_END]
-	// bus.io_registers_map.first = bus.raw[IO_FIRST_BEGIN:IO_FIRST_END]
-	// bus.io_registers_map.mirrors = bus.raw[IO_MIRRORS_BEGIN:IO_MIRRORS_END]
-	// bus.io_registers_map.second = bus.raw[IO_SECOND_BEGIN:IO_SECOND_END]
-
-	// CPU Expansion ROM map init
-	// bus.expansion_rom = bus.raw[EXPANSION_ROM_BEGIN:EXPANSION_ROM_END]
-
-	// CPU Expansion SRAM map init
-	// bus.sram = bus.raw[SRAM_BEGIN:SRAM_END]
-
-	// CPU Expansion PRG ROM map init
 	return bus
 }
 
@@ -94,7 +72,7 @@ load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {
 	copy(bus.prg_rom, rom.prg_rom)
 }
 
-// return ~(u16)0 in case of unvalid address 
+// Returns ~(u16)0 in case of unvalid address 
 safe_address :: proc(address: u16) -> u16 {
 	switch address {
 		case 0x0000 ..< CPU_RAM_MIRRORS_END:

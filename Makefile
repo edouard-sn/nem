@@ -18,5 +18,8 @@ release:
 debug:
 	$(ODINC) build . $(DEBUG_FLAGS) $(ERROR_FLAGS) -out:$(NAME)-debug
 
+tests:
+	$(ODINC) test . -all-packages 
+
 clean:
 	rm -rf $(NAME) $(NAME)-debug
