@@ -1,12 +1,19 @@
 # nem
-NES Emulator project
+NES Emulator project written in Odin!
 
-For now, only the 6502 is almost done (needs perfecting cycle-wise).
-Bus is "implemented" for CPU RAM, will continued at the same pace as the project.
-PPU not started yet.
+CPU is [nestest](https://github.com/christopherpow/nes-test-roms/blob/master/other/nestest.txt) compliant ! (rom can be found at `./emulator/cpu/test_files/nestest.nes`)
 
+The 256 instructions are implemented (without decimal mode)!
 
-# References
+## Next on the list
+
+- PPU [ ]
+- APU [ ]
+- ...
+
+## References
+
+TODO: Put everything I stumbled upon
 
 [6502 Instruction Set (www.masswerk.at)](https://www.masswerk.at/6502/6502_instruction_set.html)
 
