@@ -1,15 +1,18 @@
 package emulator
 
-RAM_MAP_BEGIN :: ZERO_PAGE_BEGIN
-RAM_MAP_END :: RAM_MIRRORS_END
-ZERO_PAGE_BEGIN :: 0x0000
-ZERO_PAGE_END :: 0x0100
-STACK_BEGIN :: 0x0100
-STACK_END :: 0x0200
-RAM_BEGIN :: 0x0200
-RAM_END :: 0x0800
-RAM_MIRRORS_BEGIN :: 0x0800
-RAM_MIRRORS_END :: 0x2000
+import nrom "../rom"
+// import "core:fmt"
+
+CPU_RAM_MAP_BEGIN :: CPU_ZERO_PAGE_BEGIN
+CPU_RAM_MAP_END :: CPU_RAM_END
+CPU_ZERO_PAGE_BEGIN :: 0x0000
+CPU_ZERO_PAGE_END :: 0x0100
+CPU_STACK_BEGIN :: 0x0100
+CPU_STACK_END :: 0x0200
+CPU_RAM_BEGIN :: 0x0200
+CPU_RAM_END :: 0x0800
+// RAM_MIRRORS_BEGIN :: 0x0800
+CPU_RAM_MIRRORS_END :: 0x2000
 
 IO_MAP_BEGIN :: IO_FIRST_BEGIN
 IO_MAP_END :: IO_SECOND_END
@@ -32,85 +35,95 @@ PRG_ROM_LOWER_END :: 0xC000
 PRG_ROM_UPPER_BEGIN :: 0xC000
 PRG_ROM_UPPER_END :: 0x10000
 
-@(private)
-CPU_MEMORY_SIZE :: 0x10000
 Bus :: struct {
-	raw:              ^[CPU_MEMORY_SIZE]byte,
+	raw:      ^[0x10000]byte,
+	cpu_vram: []byte,
 
 	//  bus slices
-	ram:              []byte,
-	ram_map:          struct {
+	ram:      []byte,
+	ram_map:  struct {
 		zero_page: []byte,
 		stack:     []byte,
 		ram:       []byte,
-		mirrors:   []byte,
+		// mirrors:   []byte,
 	},
-	io_registers:     []byte,
-	io_registers_map: struct {
-		first:   []byte,
-		mirrors: []byte,
-		second:  []byte,
-	},
-	expansion_rom:    []byte,
-	sram:             []byte,
-	prg_rom:          struct {
-		lower: []byte,
-		upper: []byte,
-	},
+	// io_registers:     []byte,
+	// io_registers_map: struct {
+	// 	first:   []byte,
+	// 	mirrors: []byte,
+	// 	second:  []byte,
+	// },
+	// expansion_rom:    []byte,
+	// sram:             []byte,
+	prg_rom:  []byte,
 }
 
 new_bus :: proc() -> Bus {
 	bus: Bus
 
-	bus.raw = new([CPU_MEMORY_SIZE]byte)
+	bus.raw = new([0x10000]byte)
 
-	// CPU RAM map init
-	bus.ram = bus.raw[RAM_MAP_BEGIN:RAM_MAP_END]
+	bus.cpu_vram = bus.raw[CPU_RAM_BEGIN:CPU_RAM_END]
+	// CPU RAM map init 
+	bus.ram = bus.raw[CPU_RAM_MAP_BEGIN:CPU_RAM_MAP_END]
 
-	bus.ram_map.zero_page = bus.raw[ZERO_PAGE_BEGIN:ZERO_PAGE_END]
-	bus.ram_map.stack = bus.raw[STACK_BEGIN:STACK_END]
-	bus.ram_map.ram = bus.raw[RAM_BEGIN:RAM_END]
-	bus.ram_map.mirrors = bus.raw[RAM_MIRRORS_BEGIN:RAM_MIRRORS_END]
+	bus.ram_map.zero_page = bus.raw[CPU_ZERO_PAGE_BEGIN:CPU_ZERO_PAGE_END]
+	bus.ram_map.stack = bus.raw[CPU_STACK_BEGIN:CPU_STACK_END]
+	bus.ram_map.ram = bus.raw[CPU_RAM_BEGIN:CPU_RAM_END]
 
+	bus.prg_rom = bus.raw[PRG_ROM_LOWER_BEGIN:PRG_ROM_UPPER_END]
 
 	// CPU IO Registers map init
-	bus.io_registers = bus.raw[IO_MAP_BEGIN:IO_MAP_END]
-	bus.io_registers_map.first = bus.raw[IO_FIRST_BEGIN:IO_FIRST_END]
-	bus.io_registers_map.mirrors = bus.raw[IO_MIRRORS_BEGIN:IO_MIRRORS_END]
-	bus.io_registers_map.second = bus.raw[IO_SECOND_BEGIN:IO_SECOND_END]
+	// bus.io_registers = bus.raw[IO_MAP_BEGIN:IO_MAP_END]
+	// bus.io_registers_map.first = bus.raw[IO_FIRST_BEGIN:IO_FIRST_END]
+	// bus.io_registers_map.mirrors = bus.raw[IO_MIRRORS_BEGIN:IO_MIRRORS_END]
+	// bus.io_registers_map.second = bus.raw[IO_SECOND_BEGIN:IO_SECOND_END]
 
 	// CPU Expansion ROM map init
-	bus.expansion_rom = bus.raw[EXPANSION_ROM_BEGIN:EXPANSION_ROM_END]
+	// bus.expansion_rom = bus.raw[EXPANSION_ROM_BEGIN:EXPANSION_ROM_END]
 
 	// CPU Expansion SRAM map init
-	bus.sram = bus.raw[SRAM_BEGIN:SRAM_END]
+	// bus.sram = bus.raw[SRAM_BEGIN:SRAM_END]
 
 	// CPU Expansion PRG ROM map init
-	bus.prg_rom.lower = bus.raw[PRG_ROM_LOWER_BEGIN:PRG_ROM_LOWER_END]
-	bus.prg_rom.upper = bus.raw[PRG_ROM_UPPER_BEGIN:PRG_ROM_UPPER_END]
 	return bus
 }
 
-mirror_safe_address :: proc(address: u16) -> u16 {
+load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {
+	assert(len(rom.prg_rom) <= (PRG_ROM_UPPER_END - PRG_ROM_LOWER_BEGIN), "ROM is too big")
+	copy(bus.prg_rom, rom.prg_rom)
+}
+
+// return ~(u16)0 in case of unvalid address 
+safe_address :: proc(address: u16) -> u16 {
 	switch address {
-		case 0x0000 ..= 0x1FFF:
+		case 0x0000 ..< CPU_RAM_MIRRORS_END:
 			// The NES BUS has 8KB of RAM, but only 2KB of address space.
 			// The address bus is only 11 bits wide, so the 2 most significant bits are ignored.
 			// 0x7FF is the highest address in the address space.
-			// The modulo permits mirroring.
-			return address % 0x0800 
-		case:
+			return address & (0b111_1111_1111)
+		case PRG_ROM_LOWER_BEGIN ..= (PRG_ROM_UPPER_END - 1):
 			return address
-		}
-	return 0
+		case:
+			return ~(u16)(0)
+	}
 }
 
+// Returns pointer to memory and real address after mirroring
+safe_pointer :: #force_inline proc(bus: ^Bus, address: u16) -> ^byte {
+	real_address := safe_address(address)
+	return &bus.raw[real_address]
+}
+
+
 // Mirroring-safe data access
-read_byte :: proc(bus: ^Bus, address: u16) -> byte {
-	return bus.raw[mirror_safe_address(address)]
+read_byte :: #force_inline proc(bus: ^Bus, address: u16) -> byte {
+	pointer := safe_pointer(bus, address)
+	return pointer^
 }
 
 // Mirroring-safe data modification
-write_byte :: proc(bus: ^Bus, address: u16, value: byte) {
-	bus.raw[mirror_safe_address(address)] = value
+write_byte :: #force_inline proc(bus: ^Bus, address: u16, value: byte) {
+	pointer := safe_pointer(bus, address)
+	pointer^ = value
 }

@@ -39,14 +39,13 @@ dump_registers :: proc(cpu: ^CPU) {
 	fmt.printf("A: %x\n", cpu.registers.accumulator)
 	fmt.printf("X: %x\n", cpu.registers.x)
 	fmt.printf("Y: %x\n", cpu.registers.y)
-	fmt.printf("Flags: %v\n", cpu.registers.flags)
+	fmt.printf("Flags: %b\n", cpu.registers.flags)
 }
 
 new_cpu :: proc(bus: ^bus.Bus) -> CPU {
 	cpu: CPU
 
 	cpu.memory = bus
-	cpu.registers.stack_pointer = 0xFF // 0x01FF - 0x0100
 
 	return cpu
 }
@@ -98,12 +97,13 @@ pull_u16_from_stack :: #force_inline proc(cpu: ^CPU) -> u16 {
 
 x_zp_indirect :: proc(cpu: ^CPU) -> u16 {
 	operand_addr := cpu.registers.program_counter + 1
-	temp_address := u16(read_byte(cpu, operand_addr)) + u16(cpu.registers.x)
+	temp_address := (u16(read_byte(cpu, operand_addr)) + u16(cpu.registers.x))
 
-	lo := read_byte(cpu, temp_address)
-	hi := read_byte(cpu, temp_address + 1)
+	// Wrap both access around zero page zone
+	lo := read_byte(cpu, temp_address & 0xFF)
+	hi := read_byte(cpu, (temp_address + 1) & 0xFF)
 
-	return u16(hi) << 8 | u16(lo)
+	return (u16(hi) << 8 | u16(lo))
 }
 
 zp_indirect_y :: proc(cpu: ^CPU) -> u16 {
@@ -137,12 +137,16 @@ absolute :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> u16 {
 relative :: #force_inline proc(cpu: ^CPU) -> u16 {
 	operand_addr := cpu.registers.program_counter + 1
 	offset := read_byte(cpu, operand_addr)
-	return u16(i16(cpu.registers.program_counter) + i16(i8(offset)))
+	return u16(i16(cpu.registers.program_counter + 2) + i16(i8(offset)))
 }
 
 reset_interupt :: proc(cpu: ^CPU) {
-	cpu.registers.flags = {}
+	cpu.registers.flags = {.Interupt, .Bit5}
 	cpu.registers.x = 0
 	cpu.registers.accumulator = 0
 	cpu.registers.program_counter = read_u16(cpu, 0xFFFC)
+
+	// Shortcut for the 3 bytes pull
+	// https://www.pagetable.com/?p=410
+	cpu.registers.stack_pointer = 0xFD
 }
