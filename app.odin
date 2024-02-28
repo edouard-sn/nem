@@ -3,8 +3,6 @@ package main
 import nbus "emulator/bus"
 import ncpu "emulator/cpu"
 
-import "core:fmt"
-
 // This main has no purpose other than to make `odin test` work (by importing the package)
 
 main :: proc() {

@@ -7,8 +7,8 @@ The 256 instructions are implemented (without decimal mode)!
 
 ## Next on the list
 
-- PPU [ ]
-- APU [ ]
+- [ ] PPU 
+- [ ] APU
 - ...
 
 ## References
