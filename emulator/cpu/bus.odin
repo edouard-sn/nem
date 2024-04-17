@@ -1,4 +1,4 @@
-package emulator
+package cpu
 
 import nrom "../rom"
 // import "core:fmt"
@@ -89,19 +89,6 @@ safe_address :: proc(address: u16) -> u16 {
 
 // Returns pointer to memory and real address after mirroring
 safe_pointer :: #force_inline proc(bus: ^Bus, address: u16) -> ^byte {
-	real_address := safe_address(address)
-	return &bus.raw[real_address]
-}
-
-
-// Mirroring-safe data access
-read_byte :: #force_inline proc(bus: ^Bus, address: u16) -> byte {
-	pointer := safe_pointer(bus, address)
-	return pointer^
-}
-
-// Mirroring-safe data modification
-write_byte :: #force_inline proc(bus: ^Bus, address: u16, value: byte) {
-	pointer := safe_pointer(bus, address)
-	pointer^ = value
+	effective_address := safe_address(address)
+	return &bus.raw[effective_address]
 }

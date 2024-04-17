@@ -1,10 +1,9 @@
 package emulator
 
-import "bus"
 import "cpu"
 
 Console :: struct {
-	bus: ^bus.Bus,
+	bus: ^cpu.Bus,
 	cpu: ^cpu.CPU,
 }
 

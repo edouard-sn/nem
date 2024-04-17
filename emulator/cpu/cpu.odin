@@ -1,17 +1,13 @@
 // Emulates a 6502 NES cpu
 package cpu
 
-import "../bus"
-
 CPU6502 :: struct {
 	registers: Registers,
-	memory:    ^bus.Bus,
+	memory:    ^Bus,
 	cycles:    uint,
 }
-
 CPU :: #type CPU6502
 
-@(private)
 Registers :: struct {
 	program_counter: u16,
 	stack_pointer:   byte,
@@ -21,7 +17,6 @@ Registers :: struct {
 	flags:           ProcStatus,
 }
 
-@(private)
 ProcStatus :: bit_set[enum {
 	Carry,
 	Zero,
@@ -34,7 +29,7 @@ ProcStatus :: bit_set[enum {
 };byte]
 
 
-new_cpu :: proc(bus: ^bus.Bus) -> CPU {
+new_cpu :: proc(bus: ^Bus) -> CPU {
 	cpu: CPU
 
 	cpu.memory = bus
@@ -47,7 +42,11 @@ new_cpu :: proc(bus: ^bus.Bus) -> CPU {
 //
 
 read_byte :: #force_inline proc(cpu: ^CPU, address: u16) -> byte {
-	return bus.read_byte(cpu.memory, address)
+	return safe_pointer(cpu.memory, address)^
+}
+
+write_byte :: #force_inline proc(cpu: ^CPU, address: u16, value: byte) {
+	safe_pointer(cpu.memory, address)^ = value
 }
 
 read_u16 :: #force_inline proc(cpu: ^CPU, address: u16) -> u16 {
@@ -55,8 +54,8 @@ read_u16 :: #force_inline proc(cpu: ^CPU, address: u16) -> u16 {
 }
 
 write_u16 :: #force_inline proc(cpu: ^CPU, address: u16, value: u16) {
-	bus.write_byte(cpu.memory, address, u8(value & 0xFF))
-	bus.write_byte(cpu.memory, address + 1, u8(value >> 8))
+	write_byte(cpu, address, u8(value & 0xFF))
+	write_byte(cpu, address + 1, u8(value >> 8))
 }
 
 //

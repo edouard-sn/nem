@@ -1,6 +1,5 @@
 package cpu
 
-import nbus "../bus"
 import "core:fmt"
 
 
@@ -29,15 +28,15 @@ Instruction :: struct {
 
 	// Is PC changed by this instruction
 	changes_pc:         bool,
+	official:           bool,
 }
 
-execute_with_address_resolution :: proc(cpu: ^CPU, bus: ^nbus.Bus, instruction: ^Instruction, address: u16) {
+execute_with_address_resolution :: proc(cpu: ^CPU, bus: ^Bus, instruction: ^Instruction, address: u16) {
 	switch ins in instruction.handle {
 		case proc(_: ^CPU):
 			ins(cpu)
 		case proc(_: ^CPU, _: u16):
-			real_address := nbus.safe_address(address)
-			ins(cpu, real_address)
+			ins(cpu, safe_address(address))
 		case proc(_: ^CPU, _: ^byte):
 			if instruction.mode == .Immediate {
 				value := u8(address)
@@ -47,40 +46,34 @@ execute_with_address_resolution :: proc(cpu: ^CPU, bus: ^nbus.Bus, instruction: 
 				ins(cpu, &cpu.registers.accumulator)
 			}
 			 else {
-				ins(cpu, nbus.safe_pointer(bus, address))
+				ins(cpu, safe_pointer(bus, address))
 			}
 	}
 }
 
 
-handle_instruction :: proc(cpu: ^CPU) {
+handle_instruction :: proc(cpu: ^CPU, formatter: FormatProc = nil) {
 	op_code := read_byte(cpu, cpu.registers.program_counter)
 	instruction := instruction_handles[op_code]
 
-	if (instruction.handle != nil) {
-		addressing := addressing_helpers[instruction.mode]
-		address, page_crossed := addressing.handle(cpu)
+	addressing := addressing_helpers[instruction.mode]
+	address, page_crossed := addressing.handle(cpu)
 
-		when ODIN_DEBUG {
-			dump_instruction(cpu, &instruction, &addressing, address)
-		}
-
-		// Pages on the 6502 are 256 bytes long. If the address crosses a page boundary, we add an extra cycle when needed.
-		if (instruction.cycle_page_crossed && page_crossed) {
-			cpu.cycles += 1
-		}
-
-		execute_with_address_resolution(cpu, cpu.memory, &instruction, address)
-
-		cpu.cycles += instruction.cycles
-
-		if (instruction.changes_pc == false) {
-			cpu.registers.program_counter += 1 + u16(addressing.bytes) // +1 for the op-code
-		}
-
+	if formatter != nil {
+		dump_instruction(cpu, &instruction, &addressing, formatter)
 	}
-	 else {
-		fmt.assertf(false, "Unknown OP-code encountered: %04x: [%02x]", cpu.registers.program_counter, op_code)
+
+	// Pages on the 6502 are 256 bytes long. If the address crosses a page boundary, we add an extra cycle when needed.
+	if (instruction.cycle_page_crossed && page_crossed) {
+		cpu.cycles += 1
+	}
+
+	execute_with_address_resolution(cpu, cpu.memory, &instruction, address)
+
+	cpu.cycles += instruction.cycles
+
+	if (instruction.changes_pc == false) {
+		cpu.registers.program_counter += 1 + u16(addressing.bytes) // +1 for the op-code
 	}
 }
 
@@ -375,11 +368,12 @@ bit_instruction :: proc(cpu: ^CPU, data: ^byte) {
 
 _branch_instruction :: #force_inline proc(cpu: ^CPU, address: u16, condition: bool) {
 	if (condition) {
+		old_pc := cpu.registers.program_counter + 2
 		cpu.registers.program_counter = address
 		// Branching takes 1 cycle
 		cpu.cycles += 1
 		// If the branch jumps to a different page, add an extra cycle
-		if ((address & 0xFF00) != (cpu.registers.program_counter & 0xFF00)) {
+		if ((address & 0xFF00) != (old_pc & 0xFF00)) {
 			cpu.cycles += 1
 		}
 	}
@@ -491,23 +485,23 @@ xaa_instruction :: proc(cpu: ^CPU, data: ^byte) {
 
 ahx_instruction :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
-	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.accumulator & cpu.registers.x & ah
+	write_byte(cpu, address, (cpu.registers.accumulator & cpu.registers.x & ah))
 }
 
 tas_instruction :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
 	cpu.registers.stack_pointer = cpu.registers.accumulator & cpu.registers.x
-	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.stack_pointer & ah
+	write_byte(cpu, address, cpu.registers.stack_pointer & ah)
 }
 
 shy_instruction :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
-	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.y & ah
+	write_byte(cpu, address, cpu.registers.y & ah)
 }
 
 shx_instruction :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
-	nbus.safe_pointer(cpu.memory, address)^ = cpu.registers.x & ah
+	write_byte(cpu, address, cpu.registers.x & ah)
 }
 
 lax_instruction :: proc(cpu: ^CPU, data: ^byte) {
