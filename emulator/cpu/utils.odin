@@ -68,7 +68,7 @@ dump_instruction :: proc(
 			formatter("($%04X) = %04X              ", read_u16(cpu, operand_addr), address)
 		case .XIndirect:
 			operand := read_byte(cpu, operand_addr)
-			offset := operand  + cpu.registers.x
+			offset := operand + cpu.registers.x
 			formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, read_byte(cpu, address))
 		case .IndirectY:
 			no_offset := address - u16(cpu.registers.y)

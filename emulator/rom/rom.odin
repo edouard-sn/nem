@@ -7,15 +7,17 @@ INES_HEADER_MAGIC :: "NES\x1a"
 PRG_ROM_PAGE_SIZE :: 0x4000
 CHR_ROM_PAGE_SIZE :: 0x2000
 
+ScreenStatus :: enum {
+	Vertical,
+	Horizontal,
+	FourScreen,
+}
+
 ROM :: struct {
 	prg_rom:            []byte,
 	chr_rom:            []byte,
 	mapper:             int,
-	screen:             enum {
-		Vertical,
-		Horizontal,
-		FourScreen,
-	},
+	screen:             ScreenStatus,
 	battery_backed_ram: bool,
 }
 

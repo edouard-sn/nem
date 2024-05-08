@@ -1,8 +1,5 @@
 package cpu
 
-import "core:fmt"
-
-
 // NOTE: Would it be worth it to remove the use of union so we can make the array const?
 InstructionHandle :: union {
 	proc(cpu: ^CPU), // No data processing

@@ -1,6 +1,7 @@
 package cpu
 
 import nrom "../rom"
+import nppu "../ppu"
 // import "core:fmt"
 
 CPU_RAM_MAP_BEGIN :: CPU_ZERO_PAGE_BEGIN
@@ -47,11 +48,11 @@ Bus :: struct {
 		ram:       []byte,
 	},
 	prg_rom:  []byte,
+
+	ppu: ^nppu.PPU
 }
 
-new_bus :: proc() -> Bus {
-	bus: Bus
-
+init_bus :: proc(bus: ^Bus) {
 	bus.raw = new([0x10000]byte)
 
 	bus.cpu_vram = bus.raw[CPU_RAM_BEGIN:CPU_RAM_END]
@@ -63,8 +64,6 @@ new_bus :: proc() -> Bus {
 	bus.ram_map.ram = bus.raw[CPU_RAM_BEGIN:CPU_RAM_END]
 
 	bus.prg_rom = bus.raw[PRG_ROM_LOWER_BEGIN:PRG_ROM_UPPER_END]
-
-	return bus
 }
 
 load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {

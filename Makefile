@@ -18,7 +18,13 @@ release:
 debug:
 	$(ODINC) build . $(DEBUG_FLAGS) $(ERROR_FLAGS) -out:$(NAME)-debug
 
-tests:
+update_test_files:
+	# Get/Update test roms
+	git submodule update --init --recursive
+
+
+tests: update_test_files
+	# Run tests
 	$(ODINC) test . -all-packages 
 
 clean:

@@ -17,9 +17,11 @@ string_builder_dump :: proc(format: string, args: ..any) {
 // Skips PPU for now
 @(test)
 nestest_compliance :: proc(t: ^testing.T) {
-	bus := new_bus()
-	cpu := new_cpu(&bus)
-	reset_interupt(&cpu)
+	bus := Bus{}
+	cpu := CPU{}
+
+	init_bus(&bus)
+	init_cpu(&cpu, &bus)
 
 	nestest := #load("../test_roms/other/nestest.nes")
 	golden_log := #load("../test_roms/other/nestest.log", string)
@@ -42,13 +44,13 @@ nestest_compliance :: proc(t: ^testing.T) {
 		handle_instruction(&cpu, string_builder_dump)
 		defer strings.builder_reset(sb)
 
-		dump := strings.trim(strings.to_string(sb^), "\n")
-		line := gl_lines[line_index]
-
-		// Skip the only 4 I/O accesses
-		if line_index == 8980 || line_index == 8982 || line_index == 8984 || line_index == 8986 {
+		// Skip the only 5 I/O accesses
+		if line_index == 8980 || line_index == 8982 || line_index == 8984 || line_index == 8986 || line_index == 8988 {
 			continue
 		}
+
+		dump := strings.trim(strings.to_string(sb^), "\n")
+		line := gl_lines[line_index]
 
 		if ppu_index == 0 {
 			ppu_index = strings.index(dump, "PPU:")
