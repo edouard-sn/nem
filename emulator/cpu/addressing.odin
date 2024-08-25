@@ -96,6 +96,6 @@ absolute :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> (u16, bool
 
 relative :: #force_inline proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	offset := read_byte(cpu, operand_addr)
-	return u16(i16(cpu.registers.program_counter + 2) + i16(i8(offset))), false
+	offset := i16(i8(read_byte(cpu, operand_addr)))
+	return u16(i16(cpu.registers.program_counter + 2) + offset), false
 }

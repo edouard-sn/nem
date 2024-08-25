@@ -78,15 +78,15 @@ load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {
 // Returns ~u16(0) in case of unvalid address 
 safe_address :: proc(address: u16) -> u16 {
 	switch address {
-		case 0x0000 ..< CPU_RAM_MIRRORS_END:
-			// The NES BUS has 8KB of RAM, but only 2KB of address space.
-			// The address bus is only 11 bits wide, so the 2 most significant bits are ignored.
-			// 0x7FF is the highest address in the address space.
-			return address & (0b111_1111_1111)
-		case PRG_ROM_LOWER_BEGIN ..= (PRG_ROM_UPPER_END - 1):
-			return address
-		case:
-			return ~u16(0)
+	case 0x0000 ..< CPU_RAM_MIRRORS_END:
+		// The NES BUS has 8KB of RAM, but only 2KB of address space.
+		// The address bus is only 11 bits wide, so the 2 most significant bits are ignored.
+		// 0x7FF is the highest address in the address space.
+		return address & (0b111_1111_1111)
+	case PRG_ROM_LOWER_BEGIN ..= (PRG_ROM_UPPER_END - 1):
+		return address
+	case:
+		return ~u16(0)
 	}
 }
 

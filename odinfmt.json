@@ -1,7 +1,7 @@
 {
 	"$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/odinfmt.schema.json",
-	"character_width": 130,
-	"indent_cases": true,
+	"character_width": 120,
     "newline_style": "LF",
-    "brace_style": "Stroustrup"
+	"checker_args": "-vet -strict-style",
+	"brace_style": "_1TBS"
 }

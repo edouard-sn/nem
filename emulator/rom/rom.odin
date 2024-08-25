@@ -43,8 +43,7 @@ parse :: proc(data: []byte) -> (rom: ROM, ok: bool) {
 
 	if control_byte_1 & 0b1000 != 0 {
 		rom.screen = .FourScreen
-	}
-	 else {
+	} else {
 		rom.screen = control_byte_1 & 0b1 != 0 ? .Vertical : .Horizontal
 	}
 

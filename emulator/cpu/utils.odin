@@ -30,57 +30,56 @@ dump_instruction :: proc(
 	// Show addressing mode
 	operand_addr := cpu.registers.program_counter + 1
 	switch instruction.mode {
-		case .Implied:
-			formatter("                            ")
-		case .Accumulator:
-			formatter("A                           ")
-		case .Immediate:
-			formatter("#$%02X                        ", address)
-		case .ZeroPage:
-			formatter("$%02X = %02X                    ", address, read_byte(cpu, address))
-		case .ZeroPageX:
-			formatter(
-				"$%02X,X @ %02X = %02X             ",
-				read_byte(cpu, cpu.registers.program_counter + 1),
-				address,
-				read_byte(cpu, address),
-			)
-		case .ZeroPageY:
-			formatter(
-				"$%02X,Y @ %02X = %02X             ",
-				read_byte(cpu, cpu.registers.program_counter + 1),
-				address,
-				read_byte(cpu, address),
-			)
-		case .Absolute:
-			if instruction.changes_pc {
-				formatter("$%04X                       ", address)
-			}
-			 else {
-				formatter("$%04X = %02X                  ", address, read_byte(cpu, address))
-			}
-		case .Relative:
+	case .Implied:
+		formatter("                            ")
+	case .Accumulator:
+		formatter("A                           ")
+	case .Immediate:
+		formatter("#$%02X                        ", address)
+	case .ZeroPage:
+		formatter("$%02X = %02X                    ", address, read_byte(cpu, address))
+	case .ZeroPageX:
+		formatter(
+			"$%02X,X @ %02X = %02X             ",
+			read_byte(cpu, cpu.registers.program_counter + 1),
+			address,
+			read_byte(cpu, address),
+		)
+	case .ZeroPageY:
+		formatter(
+			"$%02X,Y @ %02X = %02X             ",
+			read_byte(cpu, cpu.registers.program_counter + 1),
+			address,
+			read_byte(cpu, address),
+		)
+	case .Absolute:
+		if instruction.changes_pc {
 			formatter("$%04X                       ", address)
-		case .AbsoluteX:
-			formatter("$%04X,X @ %04X = %02X         ", read_u16(cpu, operand_addr), address, read_byte(cpu, address))
-		case .AbsoluteY:
-			formatter("$%04X,Y @ %04X = %02X         ", read_u16(cpu, operand_addr), address, read_byte(cpu, address))
-		case .Indirect:
-			formatter("($%04X) = %04X              ", read_u16(cpu, operand_addr), address)
-		case .XIndirect:
-			operand := read_byte(cpu, operand_addr)
-			offset := operand + cpu.registers.x
-			formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, read_byte(cpu, address))
-		case .IndirectY:
-			no_offset := address - u16(cpu.registers.y)
+		} else {
+			formatter("$%04X = %02X                  ", address, read_byte(cpu, address))
+		}
+	case .Relative:
+		formatter("$%04X                       ", address)
+	case .AbsoluteX:
+		formatter("$%04X,X @ %04X = %02X         ", read_u16(cpu, operand_addr), address, read_byte(cpu, address))
+	case .AbsoluteY:
+		formatter("$%04X,Y @ %04X = %02X         ", read_u16(cpu, operand_addr), address, read_byte(cpu, address))
+	case .Indirect:
+		formatter("($%04X) = %04X              ", read_u16(cpu, operand_addr), address)
+	case .XIndirect:
+		operand := read_byte(cpu, operand_addr)
+		offset := operand + cpu.registers.x
+		formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, read_byte(cpu, address))
+	case .IndirectY:
+		no_offset := address - u16(cpu.registers.y)
 
-			formatter(
-				"($%02X),Y = %04X @ %04X = %02X  ",
-				read_byte(cpu, operand_addr),
-				no_offset,
-				address,
-				read_byte(cpu, address),
-			)
+		formatter(
+			"($%02X),Y = %04X @ %04X = %02X  ",
+			read_byte(cpu, operand_addr),
+			no_offset,
+			address,
+			read_byte(cpu, address),
+		)
 	}
 
 	// Show registers

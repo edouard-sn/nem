@@ -54,8 +54,10 @@ nestest_compliance :: proc(t: ^testing.T) {
 			continue
 		}
 
-		testing.expectf(t, read_byte(&cpu, 0x02) == 0, "Error: %02X", read_byte(&cpu, 0x02))
-		testing.expectf(t, read_byte(&cpu, 0x03) == 0, "Error: %02X", read_byte(&cpu, 0x03))
+		err1 := read_byte(&cpu, 0x02)
+		err2 := read_byte(&cpu, 0x03)
+		testing.expectf(t, err1 == 0, "Error: %02X", err1)
+		testing.expectf(t, err2 == 0, "Error: %02X", err2)
 
 		dump := strings.trim(strings.to_string(sb^), "\n")
 		line := gl_lines[line_index]
@@ -65,7 +67,14 @@ nestest_compliance :: proc(t: ^testing.T) {
 		}
 
 		before_ppu := dump[:ppu_index] == line[:ppu_index]
-		testing.expectf(t, before_ppu, "State problem - Line %d:\n%s\n%s\n", line_index, dump[:ppu_index], line[:ppu_index])
+		testing.expectf(
+			t,
+			before_ppu,
+			"State problem - Line %d:\n%s\n%s\n",
+			line_index,
+			dump[:ppu_index],
+			line[:ppu_index],
+		)
 
 		ppu_end := ppu_index + ppu_offset
 		after_ppu := dump[ppu_end:] == line[ppu_end:]

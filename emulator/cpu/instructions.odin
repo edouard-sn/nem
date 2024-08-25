@@ -33,29 +33,27 @@ Instruction :: struct {
 
 execute_with_address_resolution :: proc(cpu: ^CPU, bus: ^Bus, instruction: ^Instruction, address_or_immediate: u16) {
 	switch ins in instruction.handle {
-		case proc(_: ^CPU):
-			ins(cpu)
-		case proc(_: ^CPU, _: byte):
-			if (instruction.mode == .Immediate) {
-				ins(cpu, u8(address_or_immediate))
-			}
-			 else {
-				ins(cpu, safe_pointer(bus, address_or_immediate)^)
-			}
-		case proc(_: ^CPU, _: ^byte):
-			fmt.assertf(
-				instruction.mode != .Immediate,
-				"%s - Pointer to value is not allowed for the immediate addressing mode",
-				instruction.name,
-			)
-			if instruction.mode == .Accumulator {
-				ins(cpu, &cpu.registers.accumulator)
-			}
-			 else {
-				ins(cpu, safe_pointer(bus, address_or_immediate))
-			}
-		case proc(_: ^CPU, _: u16):
-			ins(cpu, safe_address(address_or_immediate))
+	case proc(_: ^CPU):
+		ins(cpu)
+	case proc(_: ^CPU, _: byte):
+		if (instruction.mode == .Immediate) {
+			ins(cpu, u8(address_or_immediate))
+		} else {
+			ins(cpu, safe_pointer(bus, address_or_immediate)^)
+		}
+	case proc(_: ^CPU, _: ^byte):
+		fmt.assertf(
+			instruction.mode != .Immediate,
+			"%s - Pointer to value is not allowed for the immediate addressing mode",
+			instruction.name,
+		)
+		if instruction.mode == .Accumulator {
+			ins(cpu, &cpu.registers.accumulator)
+		} else {
+			ins(cpu, safe_pointer(bus, address_or_immediate))
+		}
+	case proc(_: ^CPU, _: u16):
+		ins(cpu, safe_address(address_or_immediate))
 	}
 }
 
@@ -288,8 +286,7 @@ rol_instruction :: proc(cpu: ^CPU, data: ^byte) {
 
 	if (old_carry) {
 		(data^) |= 0b0000_0001
-	}
-	 else {
+	} else {
 		(data^) &= 0b1111_1110
 	}
 
@@ -304,8 +301,7 @@ ror_instruction :: proc(cpu: ^CPU, data: ^byte) {
 
 	if (old_carry) {
 		(data^) |= 0b1000_0000
-	}
-	 else {
+	} else {
 		(data^) &= 0b0111_1111
 	}
 
@@ -329,7 +325,8 @@ adc_instruction :: proc(cpu: ^CPU, data: byte) {
 
 	// Shenanigans https://stackoverflow.com/questions/29193303/6502-emulation-proper-way-to-implement-adc-and-sbc
 	overflow: bool =
-		((((u16(~(cpu.registers.accumulator ~ data))) & ((u16(cpu.registers.accumulator) ~ addition))) & 0b1000_0000) > 0)
+		((((u16(~(cpu.registers.accumulator ~ data))) & ((u16(cpu.registers.accumulator) ~ addition))) & 0b1000_0000) >
+			0)
 	_set_mask(&cpu.registers.flags, {.Overflow}, overflow)
 	cpu.registers.accumulator = byte(addition & 0xFF)
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
@@ -381,8 +378,7 @@ _branch_instruction :: #force_inline proc(cpu: ^CPU, address: u16, condition: bo
 		if ((address & 0xFF00) != (old_pc & 0xFF00)) {
 			cpu.cycles += 1
 		}
-	}
-	 else {
+	} else {
 		cpu.registers.program_counter += 2
 	}
 }
