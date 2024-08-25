@@ -30,7 +30,9 @@ ProcStatus :: bit_set[enum {
 
 
 init_cpu :: proc(cpu: ^CPU, bus: ^Bus) {
-	cpu^ = CPU{memory = bus}
+	cpu^ = CPU {
+		memory = bus,
+	}
 	reset_interupt(cpu)
 }
 

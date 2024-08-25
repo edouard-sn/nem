@@ -1,7 +1,7 @@
 package cpu
 
-import nrom "../rom"
 import nppu "../ppu"
+import nrom "../rom"
 // import "core:fmt"
 
 CPU_RAM_MAP_BEGIN :: CPU_ZERO_PAGE_BEGIN
@@ -48,8 +48,7 @@ Bus :: struct {
 		ram:       []byte,
 	},
 	prg_rom:  []byte,
-
-	ppu: ^nppu.PPU
+	ppu:      ^nppu.PPU,
 }
 
 init_bus :: proc(bus: ^Bus) {
@@ -66,12 +65,17 @@ init_bus :: proc(bus: ^Bus) {
 	bus.prg_rom = bus.raw[PRG_ROM_LOWER_BEGIN:PRG_ROM_UPPER_END]
 }
 
+destroy_bus :: proc(bus: ^Bus) {
+	free(bus.raw)
+	bus^ = Bus{}
+}
+
 load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {
 	assert(len(rom.prg_rom) <= (PRG_ROM_UPPER_END - PRG_ROM_LOWER_BEGIN), "ROM is too big")
 	copy(bus.prg_rom, rom.prg_rom)
 }
 
-// Returns ~(u16)0 in case of unvalid address 
+// Returns ~u16(0) in case of unvalid address 
 safe_address :: proc(address: u16) -> u16 {
 	switch address {
 		case 0x0000 ..< CPU_RAM_MIRRORS_END:
@@ -82,12 +86,11 @@ safe_address :: proc(address: u16) -> u16 {
 		case PRG_ROM_LOWER_BEGIN ..= (PRG_ROM_UPPER_END - 1):
 			return address
 		case:
-			return ~(u16)(0)
+			return ~u16(0)
 	}
 }
 
 // Returns pointer to memory and real address after mirroring
 safe_pointer :: #force_inline proc(bus: ^Bus, address: u16) -> ^byte {
-	effective_address := safe_address(address)
-	return &bus.raw[effective_address]
+	return &bus.raw[safe_address(address)]
 }

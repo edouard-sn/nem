@@ -17,15 +17,20 @@ string_builder_dump :: proc(format: string, args: ..any) {
 // Skips PPU for now
 @(test)
 nestest_compliance :: proc(t: ^testing.T) {
+	defer strings.builder_destroy(sb)
+
 	bus := Bus{}
 	cpu := CPU{}
 
 	init_bus(&bus)
+	defer destroy_bus(&bus)
 	init_cpu(&cpu, &bus)
 
 	nestest := #load("../test_roms/other/nestest.nes")
 	golden_log := #load("../test_roms/other/nestest.log", string)
+
 	gl_lines := strings.split(golden_log, "\n")
+	defer delete(gl_lines)
 
 	rom, ok := nrom.parse(nestest)
 	testing.expect_value(t, ok, true)
@@ -49,6 +54,9 @@ nestest_compliance :: proc(t: ^testing.T) {
 			continue
 		}
 
+		testing.expectf(t, read_byte(&cpu, 0x02) == 0, "Error: %02X", read_byte(&cpu, 0x02))
+		testing.expectf(t, read_byte(&cpu, 0x03) == 0, "Error: %02X", read_byte(&cpu, 0x03))
+
 		dump := strings.trim(strings.to_string(sb^), "\n")
 		line := gl_lines[line_index]
 
@@ -62,8 +70,5 @@ nestest_compliance :: proc(t: ^testing.T) {
 		ppu_end := ppu_index + ppu_offset
 		after_ppu := dump[ppu_end:] == line[ppu_end:]
 		testing.expectf(t, after_ppu, "Cycle problem - Line %d:\n%s\n%s\n", line_index, dump[ppu_end:], line[ppu_end:])
-
-		testing.expectf(t, read_byte(&cpu, 0x02) == 0, "Error: %02X", read_byte(&cpu, 0x02))
-		testing.expectf(t, read_byte(&cpu, 0x03) == 0, "Error: %02X", read_byte(&cpu, 0x03))
 	}
 }

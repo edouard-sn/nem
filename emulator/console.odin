@@ -9,23 +9,20 @@ Console :: struct {
 	ppu: ^nppu.PPU,
 }
 
-new_bus :: proc() -> ^ncpu.Bus
-{
+new_bus :: proc() -> ^ncpu.Bus {
 	bus := new(ncpu.Bus)
 	ncpu.init_bus(bus)
 	return bus
 }
 
-new_ppu :: proc(bus: ^ncpu.Bus) -> ^nppu.PPU
-{
+new_ppu :: proc(bus: ^ncpu.Bus) -> ^nppu.PPU {
 	ppu := new(nppu.PPU)
 	nppu.init_ppu(ppu, bus.raw)
 	bus.ppu = ppu
 	return ppu
 }
 
-new_cpu :: proc(bus: ^ncpu.Bus) -> ^ncpu.CPU
-{
+new_cpu :: proc(bus: ^ncpu.Bus) -> ^ncpu.CPU {
 	cpu := new(ncpu.CPU)
 	ncpu.init_cpu(cpu, bus)
 	return cpu
@@ -35,7 +32,7 @@ new_console :: proc() -> ^Console {
 	console := new(Console)
 
 	bus := new_bus()
-	console^ = Console{
+	console^ = Console {
 		bus = bus,
 		cpu = new_cpu(bus),
 		ppu = new_ppu(bus),

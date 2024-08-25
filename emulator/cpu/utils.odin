@@ -1,6 +1,7 @@
 package cpu
 
 import "core:fmt"
+import "core:strings"
 
 FormatProc :: #type proc(fmt: string, args: ..any)
 DumpProc :: #type proc(cpu: ^CPU, instruction: ^Instruction, addressing: ^AddressingHelper, address: u16)
@@ -23,9 +24,9 @@ dump_instruction :: proc(
 	}
 
 	// Magic math to align the instruction name
-	formatter("%*s", (-3 * int(addressing.bytes)) + 6, "")
-	formatter(" %s " if instruction.official else "*%s ", instruction.name)
-
+	magic_offset := strings.repeat(" ", (-3 * int(addressing.bytes)) + 6)
+	defer delete(magic_offset)
+	formatter("%s%c%s ", magic_offset, ' ' if instruction.official else '*', instruction.name)
 	// Show addressing mode
 	operand_addr := cpu.registers.program_counter + 1
 	switch instruction.mode {
