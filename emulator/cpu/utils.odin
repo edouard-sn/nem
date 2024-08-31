@@ -20,13 +20,13 @@ dump_instruction :: proc(
 
 	// Show opcode and operands
 	for i in 0 ..= addressing.bytes {
-		formatter("%02X ", read_byte(cpu, cpu.registers.program_counter + u16(i)))
+		formatter("%02X ", unsafe_read(cpu, cpu.registers.program_counter + u16(i)))
 	}
 
 	// Magic math to align the instruction name
-	magic_offset := strings.repeat(" ", (-3 * int(addressing.bytes)) + 6)
-	defer delete(magic_offset)
+	magic_offset := strings.repeat(" ", (-3 * int(addressing.bytes)) + 6, context.temp_allocator)
 	formatter("%s%c%s ", magic_offset, ' ' if instruction.official else '*', instruction.name)
+
 	// Show addressing mode
 	operand_addr := cpu.registers.program_counter + 1
 	switch instruction.mode {
@@ -37,48 +37,58 @@ dump_instruction :: proc(
 	case .Immediate:
 		formatter("#$%02X                        ", address)
 	case .ZeroPage:
-		formatter("$%02X = %02X                    ", address, read_byte(cpu, address))
+		formatter("$%02X = %02X                    ", address, unsafe_read(cpu, address))
 	case .ZeroPageX:
 		formatter(
 			"$%02X,X @ %02X = %02X             ",
-			read_byte(cpu, cpu.registers.program_counter + 1),
+			unsafe_read(cpu, cpu.registers.program_counter + 1),
 			address,
-			read_byte(cpu, address),
+			unsafe_read(cpu, address),
 		)
 	case .ZeroPageY:
 		formatter(
 			"$%02X,Y @ %02X = %02X             ",
-			read_byte(cpu, cpu.registers.program_counter + 1),
+			unsafe_read(cpu, cpu.registers.program_counter + 1),
 			address,
-			read_byte(cpu, address),
+			unsafe_read(cpu, address),
 		)
 	case .Absolute:
 		if instruction.changes_pc {
 			formatter("$%04X                       ", address)
 		} else {
-			formatter("$%04X = %02X                  ", address, read_byte(cpu, address))
+			formatter("$%04X = %02X                  ", address, unsafe_read(cpu, address))
 		}
 	case .Relative:
 		formatter("$%04X                       ", address)
 	case .AbsoluteX:
-		formatter("$%04X,X @ %04X = %02X         ", read_u16(cpu, operand_addr), address, read_byte(cpu, address))
+		formatter(
+			"$%04X,X @ %04X = %02X         ",
+			unsafe_read_u16(cpu, operand_addr),
+			address,
+			unsafe_read(cpu, address),
+		)
 	case .AbsoluteY:
-		formatter("$%04X,Y @ %04X = %02X         ", read_u16(cpu, operand_addr), address, read_byte(cpu, address))
+		formatter(
+			"$%04X,Y @ %04X = %02X         ",
+			unsafe_read_u16(cpu, operand_addr),
+			address,
+			unsafe_read(cpu, address),
+		)
 	case .Indirect:
-		formatter("($%04X) = %04X              ", read_u16(cpu, operand_addr), address)
+		formatter("($%04X) = %04X              ", unsafe_read_u16(cpu, operand_addr), address)
 	case .XIndirect:
-		operand := read_byte(cpu, operand_addr)
+		operand := unsafe_read(cpu, operand_addr)
 		offset := operand + cpu.registers.x
-		formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, read_byte(cpu, address))
+		formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, unsafe_read(cpu, address))
 	case .IndirectY:
 		no_offset := address - u16(cpu.registers.y)
 
 		formatter(
 			"($%02X),Y = %04X @ %04X = %02X  ",
-			read_byte(cpu, operand_addr),
+			unsafe_read(cpu, operand_addr),
 			no_offset,
 			address,
-			read_byte(cpu, address),
+			unsafe_read(cpu, address),
 		)
 	}
 

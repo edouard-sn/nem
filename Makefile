@@ -2,7 +2,7 @@ NAME	=	nem
 
 ODINC	=	`which odin`
 
-VET_FLAGS	=	-strict-style -vet -vet-style -vet-semicolon
+VET_FLAGS	=	-strict-style -vet -vet-style -vet-semicolon -vet-cast
 ERROR_FLAGS	=	-error-pos-style:unix
 
 RELEASE_FLAGS =	-disable-assert -no-bounds-check
@@ -27,7 +27,7 @@ format:
 
 tests: update_test_files
 	$(info Run tests)
-	$(ODINC) test . -all-packages
+	$(ODINC) test . -all-packages $(ERROR_FLAGS)
 
 clean:
 	rm -rf $(NAME) $(NAME)-debug

@@ -2,6 +2,7 @@ package cpu
 
 import nppu "../ppu"
 import nrom "../rom"
+import "core:log"
 // import "core:fmt"
 
 CPU_RAM_MAP_BEGIN :: CPU_ZERO_PAGE_BEGIN
@@ -75,22 +76,81 @@ load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {
 	copy(bus.prg_rom, rom.prg_rom)
 }
 
-// Returns ~u16(0) in case of unvalid address 
-safe_address :: proc(address: u16) -> u16 {
+@(private)
+unsafe_read :: #force_inline proc(cpu: ^CPU, address: u16) -> u8 {
+	return cpu.memory.raw[address]
+}
+
+@(private)
+unsafe_read_u16 :: #force_inline proc(cpu: ^CPU, address: u16) -> u16 {
+	return u16(unsafe_read(cpu, address)) | (u16(unsafe_read(cpu, address + 1)) << 8)
+}
+
+read_byte :: proc(cpu: ^CPU, address: u16) -> byte {
 	switch address {
 	case 0x0000 ..< CPU_RAM_MIRRORS_END:
 		// The NES BUS has 8KB of RAM, but only 2KB of address space.
 		// The address bus is only 11 bits wide, so the 2 most significant bits are ignored.
 		// 0x7FF is the highest address in the address space.
-		return address & (0b111_1111_1111)
-	case PRG_ROM_LOWER_BEGIN ..= (PRG_ROM_UPPER_END - 1):
-		return address
+		return cpu.memory.raw[address & (0b111_1111_1111)]
+	case 0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014:
+		log.panicf("Trying to access write-only PPU registers [%04X]", address)
+	case 0x2002:
+		result := cpu.memory.ppu.registers.status^
+		cpu.memory.ppu.registers.status^ &= ~{.VblankStatus}
+		cpu.memory.ppu.registers.w = false
+		return transmute(u8)result
+	case 0x2004:
+		return cpu.memory.ppu.registers.oam_data^
+	case 0x2007:
+		return nppu.read_data(cpu.memory.ppu)
+	case 0x2008 ..= 0x3FFF:
+		return read_byte(cpu, address & 0b00100000_00000111)
+	case 0x8000 ..= 0xFFFF:
+		addr := address - 0x8000
+		if addr >= 0x4000 {
+			addr = addr % 0x4000
+		}
+		return cpu.memory.prg_rom[addr]
 	case:
-		return ~u16(0)
+		log.warnf("Weird memory access [%04X]", address)
+		return cpu.memory.raw[address]
+
+	}
+	return 0
+}
+
+write_byte :: proc(cpu: ^CPU, address: u16, value: byte) {
+	switch address {
+	case 0x0000 ..= 0x1FFF:
+		cpu.memory.raw[address & (0b111_1111_1111)] = value
+	case 0x2000:
+		cpu.memory.ppu.registers.controller^ = transmute(nppu.ControlRegister)value
+	case 0x2003:
+		cpu.memory.ppu.registers.oam_address^ = value
+	case 0x2004:
+		cpu.memory.ppu.registers.oam_data^ = value
+		cpu.memory.ppu.registers.oam_address^ += 1
+	case 0x2005:
+		nppu.write_scroll(cpu.memory.ppu, value)
+	case 0x2006:
+		nppu.update_ppu_address_reg(cpu.memory.ppu, value)
+	case 0x2007:
+		nppu.write_data(cpu.memory.ppu, value)
+	case 0x2008 ..= 0x3FFF:
+		write_byte(cpu, address & 0b00100000_00000111, value)
+	case 0x8000 ..= 0xFFFF:
+		log.panic("Attempt to write to Cartridge ROM space: %04X", address)
+	case:
+		log.infof("Ignoring mem write-access at %04X", address)
 	}
 }
 
-// Returns pointer to memory and real address after mirroring
-safe_pointer :: #force_inline proc(bus: ^Bus, address: u16) -> ^byte {
-	return &bus.raw[safe_address(address)]
+read_u16 :: #force_inline proc(cpu: ^CPU, address: u16) -> u16 {
+	return u16(read_byte(cpu, address)) | (u16(read_byte(cpu, address + 1)) << 8)
+}
+
+write_u16 :: #force_inline proc(cpu: ^CPU, address: u16, value: u16) {
+	write_byte(cpu, address, u8(value & 0xFF))
+	write_byte(cpu, address + 1, u8(value >> 8))
 }
