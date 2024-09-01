@@ -1,4 +1,4 @@
-package ines
+package emulator
 
 import "core:fmt"
 import "core:os"
@@ -21,13 +21,13 @@ ROM :: struct {
 	battery_backed_ram: bool,
 }
 
-load_rom :: proc(name: string) -> (rom: ROM, ok: bool) {
+rom_read :: proc(name: string) -> (rom: ROM, ok: bool) {
 	data := os.read_entire_file(name) or_return
 
-	return parse(data)
+	return rom_parse(data)
 }
 
-parse :: proc(data: []byte) -> (rom: ROM, ok: bool) {
+rom_parse :: proc(data: []byte) -> (rom: ROM, ok: bool) {
 	buffer := data
 
 	for letter, idx in INES_HEADER_MAGIC {

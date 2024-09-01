@@ -1,5 +1,5 @@
 // Emulates a 6502 NES cpu
-package cpu
+package emulator
 CPU6502 :: struct {
 	registers: Registers,
 	memory:    ^Bus,
@@ -30,15 +30,16 @@ ProcStatus :: bit_set[enum {
 };byte]
 
 
-init_cpu :: proc(cpu: ^CPU, bus: ^Bus) {
+cpu_init :: proc(cpu: ^CPU, bus: ^Bus) {
 	cpu^ = CPU {
 		memory = bus,
-		read   = read_byte,
-		write  = write_byte,
+		read   = cpu_read_byte,
+		write  = cpu_write_byte,
 	}
-	reset_interupt(cpu)
+	cpu_reset_interupt(cpu)
 }
 
+@(private = "file")
 execute_with_address_resolution :: proc(cpu: ^CPU, instruction: ^Instruction, target: u16) {
 	switch ins in instruction.handle {
 	case proc(_: ^CPU):
@@ -55,16 +56,24 @@ execute_with_address_resolution :: proc(cpu: ^CPU, instruction: ^Instruction, ta
 			cpu.write = proc(cpu: ^CPU, _: u16, data: byte) {cpu.registers.accumulator = data}
 		}
 		defer if instruction.mode == .Accumulator {
-			cpu.read = read_byte
-			cpu.write = write_byte
+			cpu.read = cpu_read_byte
+			cpu.write = cpu_write_byte
 		}
 		ins(cpu, target)
 	}
 }
 
+cpu_write_byte :: proc(cpu: ^CPU, address: u16, data: byte) {
+	bus_write_byte(cpu.memory, address, data)
+}
 
-handle_instruction :: proc(cpu: ^CPU, formatter: FormatProc = nil) {
-	op_code := unsafe_read(cpu, cpu.registers.program_counter)
+cpu_read_byte :: proc(cpu: ^CPU, address: u16) -> u8 {
+	return bus_read_byte(cpu.memory, address)
+}
+
+
+cpu_handle_instruction :: proc(cpu: ^CPU, formatter: FormatProc = nil) {
+	op_code := unsafe_read(cpu.memory, cpu.registers.program_counter)
 	instruction := instruction_handles[op_code]
 
 	addressing := addressing_helpers[instruction.mode]
@@ -76,26 +85,31 @@ handle_instruction :: proc(cpu: ^CPU, formatter: FormatProc = nil) {
 
 	// Pages on the 6502 are 256 bytes long. If the address crosses a page boundary, we add an extra cycle when needed.
 	if (instruction.cycle_page_crossed && page_crossed) {
-		cpu.cycles += 1
+		cpu_tick(cpu, 1)
 	}
 
 	execute_with_address_resolution(cpu, &instruction, target)
 
-	cpu.cycles += instruction.cycles
+	cpu_tick(cpu, instruction.cycles)
 
 	if (instruction.changes_pc == false) {
 		cpu.registers.program_counter += 1 + u16(addressing.bytes) // +1 for the op-code
 	}
 }
 
-reset_interupt :: proc(cpu: ^CPU) {
+cpu_reset_interupt :: proc(cpu: ^CPU) {
 	cpu.registers.flags = {.Interupt, .Bit5}
 	cpu.registers.x = 0
 	cpu.registers.accumulator = 0
-	cpu.registers.program_counter = unsafe_read_u16(cpu, 0xFFFC)
+	cpu.registers.program_counter = unsafe_read_u16(cpu.memory, 0xFFFC)
 
 	// Shortcut for the 3 bytes pull
 	// https://www.pagetable.com/?p=410
 	cpu.registers.stack_pointer = 0xFD
 	cpu.cycles = 7
+}
+
+cpu_tick :: proc(cpu: ^CPU, cycles: uint) {
+	cpu.cycles += cycles
+	bus_tick_ppu(cpu.memory, cycles)
 }

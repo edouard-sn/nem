@@ -1,7 +1,5 @@
-package cpu
+package emulator
 
-import nppu "../ppu"
-import nrom "../rom"
 import "core:log"
 // import "core:fmt"
 
@@ -49,10 +47,10 @@ Bus :: struct {
 		ram:       []byte,
 	},
 	prg_rom:  []byte,
-	ppu:      ^nppu.PPU,
+	ppu:      ^PPU,
 }
 
-init_bus :: proc(bus: ^Bus) {
+bus_init :: proc(bus: ^Bus) {
 	bus.raw = new([0x10000]byte)
 
 	bus.cpu_vram = bus.raw[CPU_RAM_BEGIN:CPU_RAM_END]
@@ -66,79 +64,78 @@ init_bus :: proc(bus: ^Bus) {
 	bus.prg_rom = bus.raw[PRG_ROM_LOWER_BEGIN:PRG_ROM_UPPER_END]
 }
 
-destroy_bus :: proc(bus: ^Bus) {
+bus_destroy :: proc(bus: ^Bus) {
 	free(bus.raw)
 	bus^ = Bus{}
 }
 
-load_rom :: proc(bus: ^Bus, rom: ^nrom.ROM) {
+bus_load_rom :: proc(bus: ^Bus, rom: ^ROM) {
 	assert(len(rom.prg_rom) <= (PRG_ROM_UPPER_END - PRG_ROM_LOWER_BEGIN), "ROM is too big")
 	copy(bus.prg_rom, rom.prg_rom)
+	copy(bus.prg_rom[0x4000:], rom.prg_rom)
 }
 
-@(private)
-unsafe_read :: #force_inline proc(cpu: ^CPU, address: u16) -> u8 {
-	return cpu.memory.raw[address]
+unsafe_read :: #force_inline proc(bus: ^Bus, address: u16) -> u8 {
+	return bus.raw[address]
 }
 
-@(private)
-unsafe_read_u16 :: #force_inline proc(cpu: ^CPU, address: u16) -> u16 {
-	return u16(unsafe_read(cpu, address)) | (u16(unsafe_read(cpu, address + 1)) << 8)
+unsafe_read_u16 :: #force_inline proc(bus: ^Bus, address: u16) -> u16 {
+	return u16(unsafe_read(bus, address)) | (u16(unsafe_read(bus, address + 1)) << 8)
 }
 
-read_byte :: proc(cpu: ^CPU, address: u16) -> byte {
+bus_read_byte :: proc(bus: ^Bus, address: u16) -> byte {
 	switch address {
 	case 0x0000 ..< CPU_RAM_MIRRORS_END:
 		// The NES BUS has 8KB of RAM, but only 2KB of address space.
 		// The address bus is only 11 bits wide, so the 2 most significant bits are ignored.
 		// 0x7FF is the highest address in the address space.
-		return cpu.memory.raw[address & (0b111_1111_1111)]
+		return bus.raw[address & (0b111_1111_1111)]
 	case 0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014:
 		log.panicf("Trying to access write-only PPU registers [%04X]", address)
 	case 0x2002:
-		result := cpu.memory.ppu.registers.status^
-		cpu.memory.ppu.registers.status^ &= ~{.VblankStatus}
-		cpu.memory.ppu.registers.w = false
+		result := bus.ppu.registers.status^
+		bus.ppu.registers.status^ &= ~{.VblankStatus}
+		bus.ppu.registers.w = false
 		return transmute(u8)result
 	case 0x2004:
-		return cpu.memory.ppu.registers.oam_data^
+		return bus.ppu.registers.oam_data^
 	case 0x2007:
-		return nppu.read_data(cpu.memory.ppu)
+		return ppu_read_data(bus.ppu)
 	case 0x2008 ..= 0x3FFF:
-		return read_byte(cpu, address & 0b00100000_00000111)
+		return bus_read_byte(bus, address & 0b00100000_00000111)
 	case 0x8000 ..= 0xFFFF:
 		addr := address - 0x8000
 		if addr >= 0x4000 {
 			addr = addr % 0x4000
 		}
-		return cpu.memory.prg_rom[addr]
+		return bus.prg_rom[addr]
 	case:
 		log.warnf("Weird memory access [%04X]", address)
-		return cpu.memory.raw[address]
+		return bus.raw[address]
 
 	}
 	return 0
 }
 
-write_byte :: proc(cpu: ^CPU, address: u16, value: byte) {
+bus_write_byte :: proc(bus: ^Bus, address: u16, value: byte) {
 	switch address {
 	case 0x0000 ..= 0x1FFF:
-		cpu.memory.raw[address & (0b111_1111_1111)] = value
+		bus.raw[address & (0b111_1111_1111)] = value
 	case 0x2000:
-		cpu.memory.ppu.registers.controller^ = transmute(nppu.ControlRegister)value
+		bus.ppu.registers.controller^ = transmute(ControlRegister)value
 	case 0x2003:
-		cpu.memory.ppu.registers.oam_address^ = value
+		bus.ppu.registers.oam_address^ = value
 	case 0x2004:
-		cpu.memory.ppu.registers.oam_data^ = value
-		cpu.memory.ppu.registers.oam_address^ += 1
+		bus.ppu.registers.oam_data^ = value
+		bus.ppu.registers.oam_address^ += 1
 	case 0x2005:
-		nppu.write_scroll(cpu.memory.ppu, value)
+		ppu_write_scroll(bus.ppu, value)
 	case 0x2006:
-		nppu.update_ppu_address_reg(cpu.memory.ppu, value)
+		ppu_update_address(bus.ppu, value)
 	case 0x2007:
-		nppu.write_data(cpu.memory.ppu, value)
+		ppu_write_data(bus.ppu, value)
 	case 0x2008 ..= 0x3FFF:
-		write_byte(cpu, address & 0b00100000_00000111, value)
+		bus_write_byte(bus, address & 0b00100000_00000111, value)
 	case 0x8000 ..= 0xFFFF:
 		log.panic("Attempt to write to Cartridge ROM space: %04X", address)
 	case:
@@ -146,11 +143,15 @@ write_byte :: proc(cpu: ^CPU, address: u16, value: byte) {
 	}
 }
 
-read_u16 :: #force_inline proc(cpu: ^CPU, address: u16) -> u16 {
-	return u16(read_byte(cpu, address)) | (u16(read_byte(cpu, address + 1)) << 8)
+bus_read_u16 :: #force_inline proc(bus: ^Bus, address: u16) -> u16 {
+	return u16(bus_read_byte(bus, address)) | (u16(bus_read_byte(bus, address + 1)) << 8)
 }
 
-write_u16 :: #force_inline proc(cpu: ^CPU, address: u16, value: u16) {
-	write_byte(cpu, address, u8(value & 0xFF))
-	write_byte(cpu, address + 1, u8(value >> 8))
+bus_write_u16 :: #force_inline proc(bus: ^Bus, address: u16, value: u16) {
+	bus_write_byte(bus, address, u8(value & 0xFF))
+	bus_write_byte(bus, address + 1, u8(value >> 8))
+}
+
+bus_tick_ppu :: proc(bus: ^Bus, cycles: uint) {
+	tick(bus.ppu, cycles * 3)
 }

@@ -1,11 +1,11 @@
-package cpu
+package emulator
 
-import "core:fmt"
+import "core:log"
 import "core:strings"
 
 FormatProc :: #type proc(fmt: string, args: ..any)
 DumpProc :: #type proc(cpu: ^CPU, instruction: ^Instruction, addressing: ^AddressingHelper, address: u16)
-DEFAULT_FORMATTER: FormatProc : proc(format: string, args: ..any) {fmt.printf(format, ..args)}
+DEFAULT_FORMATTER: FormatProc : proc(format: string, args: ..any) {log.infof(format, ..args)}
 
 // Dump current state in Nintendulator-style format (nestest.log) into any formatter 
 dump_instruction :: proc(
@@ -20,7 +20,7 @@ dump_instruction :: proc(
 
 	// Show opcode and operands
 	for i in 0 ..= addressing.bytes {
-		formatter("%02X ", unsafe_read(cpu, cpu.registers.program_counter + u16(i)))
+		formatter("%02X ", unsafe_read(cpu.memory, cpu.registers.program_counter + u16(i)))
 	}
 
 	// Magic math to align the instruction name
@@ -37,58 +37,58 @@ dump_instruction :: proc(
 	case .Immediate:
 		formatter("#$%02X                        ", address)
 	case .ZeroPage:
-		formatter("$%02X = %02X                    ", address, unsafe_read(cpu, address))
+		formatter("$%02X = %02X                    ", address, unsafe_read(cpu.memory, address))
 	case .ZeroPageX:
 		formatter(
 			"$%02X,X @ %02X = %02X             ",
-			unsafe_read(cpu, cpu.registers.program_counter + 1),
+			unsafe_read(cpu.memory, cpu.registers.program_counter + 1),
 			address,
-			unsafe_read(cpu, address),
+			unsafe_read(cpu.memory, address),
 		)
 	case .ZeroPageY:
 		formatter(
 			"$%02X,Y @ %02X = %02X             ",
-			unsafe_read(cpu, cpu.registers.program_counter + 1),
+			unsafe_read(cpu.memory, cpu.registers.program_counter + 1),
 			address,
-			unsafe_read(cpu, address),
+			unsafe_read(cpu.memory, address),
 		)
 	case .Absolute:
 		if instruction.changes_pc {
 			formatter("$%04X                       ", address)
 		} else {
-			formatter("$%04X = %02X                  ", address, unsafe_read(cpu, address))
+			formatter("$%04X = %02X                  ", address, unsafe_read(cpu.memory, address))
 		}
 	case .Relative:
 		formatter("$%04X                       ", address)
 	case .AbsoluteX:
 		formatter(
 			"$%04X,X @ %04X = %02X         ",
-			unsafe_read_u16(cpu, operand_addr),
+			unsafe_read_u16(cpu.memory, operand_addr),
 			address,
-			unsafe_read(cpu, address),
+			unsafe_read(cpu.memory, address),
 		)
 	case .AbsoluteY:
 		formatter(
 			"$%04X,Y @ %04X = %02X         ",
-			unsafe_read_u16(cpu, operand_addr),
+			unsafe_read_u16(cpu.memory, operand_addr),
 			address,
-			unsafe_read(cpu, address),
+			unsafe_read(cpu.memory, address),
 		)
 	case .Indirect:
-		formatter("($%04X) = %04X              ", unsafe_read_u16(cpu, operand_addr), address)
+		formatter("($%04X) = %04X              ", unsafe_read_u16(cpu.memory, operand_addr), address)
 	case .XIndirect:
-		operand := unsafe_read(cpu, operand_addr)
+		operand := unsafe_read(cpu.memory, operand_addr)
 		offset := operand + cpu.registers.x
-		formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, unsafe_read(cpu, address))
+		formatter("($%02X,X) @ %02X = %04X = %02X    ", operand, offset, address, unsafe_read(cpu.memory, address))
 	case .IndirectY:
 		no_offset := address - u16(cpu.registers.y)
 
 		formatter(
 			"($%02X),Y = %04X @ %04X = %02X  ",
-			unsafe_read(cpu, operand_addr),
+			unsafe_read(cpu.memory, operand_addr),
 			no_offset,
 			address,
-			unsafe_read(cpu, address),
+			unsafe_read(cpu.memory, address),
 		)
 	}
 

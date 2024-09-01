@@ -1,20 +1,22 @@
-package ppu
+package emulator
 
-import nrom "../rom"
+
 import "core:log"
 
 PPU :: struct {
-	registers:      Registers,
+	registers:      PPURegisters,
 	raw:            ^[0x10000]byte,
 	chr_rom:        []byte,
 	palettes:       []byte,
 	vram:           []byte,
 	pattern_tables: []byte,
-	screen:         nrom.ScreenStatus,
+	screen:         ScreenStatus,
 	data_buffer:    byte,
+	cycles:         uint,
+	scan_line:      uint,
 }
 
-Registers :: struct {
+PPURegisters :: struct {
 	controller:  ^ControlRegister,
 	mask:        ^byte,
 	status:      ^StatusRegister,
@@ -60,7 +62,7 @@ AddressRegister :: struct {
 	hi: byte,
 }
 
-init_ppu :: proc(ppu: ^PPU, bus_memory: ^[0x10000]byte) {
+ppu_init :: proc(ppu: ^PPU, bus_memory: ^[0x10000]byte) {
 	ppu^ = PPU {
 		registers = {
 			controller = cast(^ControlRegister)&bus_memory[0x2000],
@@ -75,7 +77,7 @@ init_ppu :: proc(ppu: ^PPU, bus_memory: ^[0x10000]byte) {
 	}
 }
 
-write_scroll :: proc(ppu: ^PPU, value: u8) {
+ppu_write_scroll :: proc(ppu: ^PPU, value: u8) {
 	if ppu.registers.w {
 		ppu.registers.scroll.x = value
 	} else {
@@ -85,18 +87,20 @@ write_scroll :: proc(ppu: ^PPU, value: u8) {
 }
 
 
-get_ppu_address_reg :: proc(ppu: ^PPU) -> u16 {
+ppu_get_address :: proc(ppu: ^PPU) -> u16 {
 	reg := &ppu.registers.address
 
 	return u16(reg.hi << 8) | u16(reg.lo & 0xFF)
 }
 
-set_ppu_address_reg :: proc(ppu: ^PPU, value: u16) {
+@(private = "file")
+ppu_set_address :: proc(ppu: ^PPU, value: u16) {
 	ppu.registers.address.hi = byte(value >> 8) & 0xFF
 	ppu.registers.address.lo = byte(value & 0xFF)
 }
 
-incr_ppu_address_reg :: proc(ppu: ^PPU) {
+@(private = "file")
+ppu_increment_address :: proc(ppu: ^PPU) {
 	reg := &ppu.registers.address
 	old_lo := reg.lo
 
@@ -108,12 +112,12 @@ incr_ppu_address_reg :: proc(ppu: ^PPU) {
 	if old_lo > reg.lo {
 		reg.hi += 1
 	}
-	if get_ppu_address_reg(ppu) > 0x3FFF {
-		set_ppu_address_reg(ppu, get_ppu_address_reg(ppu) & 0x3FFF)
+	if ppu_get_address(ppu) > 0x3FFF {
+		ppu_set_address(ppu, ppu_get_address(ppu) & 0x3FFF)
 	}
 }
 
-update_ppu_address_reg :: proc(ppu: ^PPU, value: u8) {
+ppu_update_address :: proc(ppu: ^PPU, value: u8) {
 	reg := &ppu.registers.address
 
 	if ppu.registers.w {
@@ -121,14 +125,14 @@ update_ppu_address_reg :: proc(ppu: ^PPU, value: u8) {
 	} else {
 		reg.lo = value
 	}
-	if get_ppu_address_reg(ppu) > 0x3FFF {
-		set_ppu_address_reg(ppu, get_ppu_address_reg(ppu) & 0x3FFF)
+	if ppu_get_address(ppu) > 0x3FFF {
+		ppu_set_address(ppu, ppu_get_address(ppu) & 0x3FFF)
 	}
 	ppu.registers.w = !ppu.registers.w
 }
 
-@(private)
-mirror_vram :: proc(ppu: ^PPU, addr: u16) -> u16 {
+@(private = "file")
+ppu_mirror_vram :: proc(ppu: ^PPU, addr: u16) -> u16 {
 	mirrored_vram: u16 = addr & 0b1011_1111_1111_1111 // mirror down 0x3000-0x3eff to 0x2000-0x2eff
 	vram_index: u16 = mirrored_vram - 0x2000 // to vram vector
 	name_table: u16 = vram_index / 0x400 // to the name table index
@@ -147,9 +151,9 @@ mirror_vram :: proc(ppu: ^PPU, addr: u16) -> u16 {
 	}
 }
 
-read_data :: proc(ppu: ^PPU) -> u8 {
-	address := get_ppu_address_reg(ppu)
-	incr_ppu_address_reg(ppu)
+ppu_read_data :: proc(ppu: ^PPU) -> u8 {
+	address := ppu_get_address(ppu)
+	ppu_increment_address(ppu)
 
 	switch address {
 	case 0 ..= 0x1fff:
@@ -158,7 +162,7 @@ read_data :: proc(ppu: ^PPU) -> u8 {
 		return result
 	case 0x2000 ..= 0x2fff:
 		result := ppu.data_buffer
-		ppu.data_buffer = ppu.vram[mirror_vram(ppu, address)]
+		ppu.data_buffer = ppu.vram[ppu_mirror_vram(ppu, address)]
 		return result
 	case 0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c:
 		address -= 0x10
@@ -170,14 +174,14 @@ read_data :: proc(ppu: ^PPU) -> u8 {
 	return 0
 }
 
-write_data :: proc(ppu: ^PPU, value: u8) {
-	address := get_ppu_address_reg(ppu)
+ppu_write_data :: proc(ppu: ^PPU, value: u8) {
+	address := ppu_get_address(ppu)
 
 	switch address {
 	case 0 ..= 0x1fff:
 		log.warnf("Attempt to write on chr rom [%04X]", address)
 	case 0x2000 ..= 0x2fff:
-		ppu.vram[mirror_vram(ppu, address)] = value
+		ppu.vram[ppu_mirror_vram(ppu, address)] = value
 	case 0x3f10 | 0x3f14 | 0x3f18 | 0x3f1c:
 		address -= 0x10
 		fallthrough
@@ -186,5 +190,25 @@ write_data :: proc(ppu: ^PPU, value: u8) {
 	case:
 		log.panicf("Trying to access unexpected address: %04X", address)
 	}
-	incr_ppu_address_reg(ppu)
+	ppu_increment_address(ppu)
+}
+
+tick :: proc(ppu: ^PPU, cycles: uint) -> bool {
+	ppu.cycles += cycles
+	if ppu.cycles >= 341 {
+		ppu.cycles -= 341
+		ppu.scan_line += 1
+
+		if ppu.scan_line == 241 {
+			if .GenerateNMI in ppu.registers.controller {
+				ppu.registers.status^ |= {.VblankStatus}
+				// TODO trigger nmi
+			}
+		} else if ppu.scan_line >= 262 {
+			ppu.scan_line = 0
+			ppu.registers.status^ &= ~{.VblankStatus}
+			return true
+		}
+	}
+	return false
 }

@@ -1,4 +1,4 @@
-package cpu
+package emulator
 
 // NOTE: Would it be worth it to remove the use of union so we can make the array const?
 InstructionHandle :: union {
@@ -40,115 +40,115 @@ _zero_or_neg_flags :: #force_inline proc(flags: ^ProcStatus, nb: byte) {
 	_set_mask(flags, {.Negative}, i8(nb) < 0)
 }
 
-tax_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_tax :: proc(cpu: ^CPU) {
 	cpu.registers.x = cpu.registers.accumulator
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
 }
 
-txa_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_txa :: proc(cpu: ^CPU) {
 	cpu.registers.accumulator = cpu.registers.x
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-tay_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_tay :: proc(cpu: ^CPU) {
 	cpu.registers.y = cpu.registers.accumulator
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.y)
 }
 
-tya_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_tya :: proc(cpu: ^CPU) {
 	cpu.registers.accumulator = cpu.registers.y
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-inx_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_inx :: proc(cpu: ^CPU) {
 	cpu.registers.x += 1
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
 }
 
-dex_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_dex :: proc(cpu: ^CPU) {
 	cpu.registers.x -= 1
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
 }
 
-iny_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_iny :: proc(cpu: ^CPU) {
 	cpu.registers.y += 1
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.y)
 }
 
-dey_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_dey :: proc(cpu: ^CPU) {
 	cpu.registers.y -= 1
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.y)
 }
 
-php_instruction :: proc(cpu: ^CPU) {
-	push_byte_on_stack(cpu, transmute(byte)(cpu.registers.flags | {.Break, .Bit5}))
+cpu_instruction_php :: proc(cpu: ^CPU) {
+	cpu_stack_push(cpu, transmute(byte)(cpu.registers.flags | {.Break, .Bit5}))
 }
 
-nop_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_nop :: proc(cpu: ^CPU) {
 }
 
-pha_instruction :: proc(cpu: ^CPU) {
-	push_byte_on_stack(cpu, cpu.registers.accumulator)
+cpu_instruction_pha :: proc(cpu: ^CPU) {
+	cpu_stack_push(cpu, cpu.registers.accumulator)
 }
 
-pla_instruction :: proc(cpu: ^CPU) {
-	cpu.registers.accumulator = pull_byte_from_stack(cpu)
+cpu_instruction_pla :: proc(cpu: ^CPU) {
+	cpu.registers.accumulator = cpu_stack_pull(cpu)
 
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-plp_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_plp :: proc(cpu: ^CPU) {
 	break_bit5_save := (cpu.registers.flags & {.Break, .Bit5})
-	cpu.registers.flags = transmute(ProcStatus)pull_byte_from_stack(cpu) & ~{.Break, .Bit5}
+	cpu.registers.flags = transmute(ProcStatus)cpu_stack_pull(cpu) & ~{.Break, .Bit5}
 	cpu.registers.flags |= break_bit5_save
 }
 
-clc_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_clc :: proc(cpu: ^CPU) {
 	cpu.registers.flags &= ~{.Carry}
 }
 
-sec_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_sec :: proc(cpu: ^CPU) {
 	cpu.registers.flags |= {.Carry}
 }
 
-sed_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_sed :: proc(cpu: ^CPU) {
 	cpu.registers.flags |= {.Decimal}
 }
 
-sei_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_sei :: proc(cpu: ^CPU) {
 	cpu.registers.flags |= {.Interupt}
 }
 
-cli_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_cli :: proc(cpu: ^CPU) {
 	cpu.registers.flags &= ~{.Interupt}
 }
 
-clv_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_clv :: proc(cpu: ^CPU) {
 	cpu.registers.flags &= ~{.Overflow}
 }
 
-cld_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_cld :: proc(cpu: ^CPU) {
 	cpu.registers.flags &= ~{.Decimal}
 }
 
-txs_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_txs :: proc(cpu: ^CPU) {
 	cpu.registers.stack_pointer = cpu.registers.x
 }
 
-tsx_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_tsx :: proc(cpu: ^CPU) {
 	cpu.registers.x = cpu.registers.stack_pointer
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
 }
 
-lsr_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_lsr :: proc(cpu: ^CPU, address: u16) {
 	data := cpu->read(address)
 	_set_mask(&cpu.registers.flags, {.Carry}, (data & 1 != 0))
 	cpu->write(address, data >> 1)
@@ -158,7 +158,7 @@ lsr_instruction :: proc(cpu: ^CPU, address: u16) {
 	_zero_or_neg_flags(&cpu.registers.flags, cpu->read(address))
 }
 
-asl_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_asl :: proc(cpu: ^CPU, address: u16) {
 	data := cpu->read(address)
 	_set_mask(&cpu.registers.flags, {.Carry}, (data & 0b1000_0000 != 0))
 	data <<= 1
@@ -166,67 +166,67 @@ asl_instruction :: proc(cpu: ^CPU, address: u16) {
 	_zero_or_neg_flags(&cpu.registers.flags, data)
 }
 
-ora_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_ora :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.accumulator |= data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-and_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_and :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.accumulator &= data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-eor_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_eor :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.accumulator ~= data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-_cmp_instruction :: proc(flags: ^ProcStatus, lhs: byte, rhs: byte) {
+cpu_instruction__cmp :: proc(flags: ^ProcStatus, lhs: byte, rhs: byte) {
 	_set_mask(flags, {.Carry}, lhs >= rhs)
 	sub := lhs - rhs
 	_zero_or_neg_flags(flags, sub)
 }
 
-cmp_instruction :: proc(cpu: ^CPU, data: byte) {
-	_cmp_instruction(&cpu.registers.flags, cpu.registers.accumulator, data)
+cpu_instruction_cmp :: proc(cpu: ^CPU, data: byte) {
+	cpu_instruction__cmp(&cpu.registers.flags, cpu.registers.accumulator, data)
 }
 
-cpx_instruction :: proc(cpu: ^CPU, data: byte) {
-	_cmp_instruction(&cpu.registers.flags, cpu.registers.x, data)
+cpu_instruction_cpx :: proc(cpu: ^CPU, data: byte) {
+	cpu_instruction__cmp(&cpu.registers.flags, cpu.registers.x, data)
 }
 
-cpy_instruction :: proc(cpu: ^CPU, data: byte) {
-	_cmp_instruction(&cpu.registers.flags, cpu.registers.y, data)
+cpu_instruction_cpy :: proc(cpu: ^CPU, data: byte) {
+	cpu_instruction__cmp(&cpu.registers.flags, cpu.registers.y, data)
 }
 
-sta_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_sta :: proc(cpu: ^CPU, address: u16) {
 	cpu->write(address, cpu.registers.accumulator)
 }
 
-stx_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_stx :: proc(cpu: ^CPU, address: u16) {
 	cpu->write(address, cpu.registers.x)
 }
 
-sty_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_sty :: proc(cpu: ^CPU, address: u16) {
 	cpu->write(address, cpu.registers.y)
 }
 
-lda_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_lda :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.accumulator = data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-ldy_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_ldy :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.y = data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.y)
 }
 
-ldx_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_ldx :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.x = data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
 }
 
-rol_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_rol :: proc(cpu: ^CPU, address: u16) {
 	old_carry := .Carry in cpu.registers.flags
 
 	data := cpu->read(address)
@@ -243,7 +243,7 @@ rol_instruction :: proc(cpu: ^CPU, address: u16) {
 	_zero_or_neg_flags(&cpu.registers.flags, data)
 }
 
-ror_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_ror :: proc(cpu: ^CPU, address: u16) {
 	old_carry := .Carry in cpu.registers.flags
 	data := cpu->read(address)
 	_set_mask(&cpu.registers.flags, {.Carry}, (data & 0b0000_0001 != 0))
@@ -259,18 +259,18 @@ ror_instruction :: proc(cpu: ^CPU, address: u16) {
 	_zero_or_neg_flags(&cpu.registers.flags, data)
 }
 
-rti_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_rti :: proc(cpu: ^CPU) {
 	// ignore break and bit5 inline lol
 	cpu.registers.flags =
-		(transmute(ProcStatus)pull_byte_from_stack(cpu) & ~{.Break, .Bit5}) | (cpu.registers.flags & {.Break, .Bit5})
-	cpu.registers.program_counter = pull_u16_from_stack(cpu)
+		(transmute(ProcStatus)cpu_stack_pull(cpu) & ~{.Break, .Bit5}) | (cpu.registers.flags & {.Break, .Bit5})
+	cpu.registers.program_counter = cpu_stack_pull_u16(cpu)
 }
 
-rts_instruction :: proc(cpu: ^CPU) {
-	cpu.registers.program_counter = pull_u16_from_stack(cpu) + 1
+cpu_instruction_rts :: proc(cpu: ^CPU) {
+	cpu.registers.program_counter = cpu_stack_pull_u16(cpu) + 1
 }
 
-adc_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_adc :: proc(cpu: ^CPU, data: byte) {
 	addition := u16(cpu.registers.accumulator) + u16(data) + u16(.Carry in cpu.registers.flags)
 	_set_mask(&cpu.registers.flags, {.Carry}, addition > 0xFF)
 
@@ -283,39 +283,39 @@ adc_instruction :: proc(cpu: ^CPU, data: byte) {
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-sbc_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_sbc :: proc(cpu: ^CPU, data: byte) {
 	complemented := ~data // -data - 1
-	adc_instruction(cpu, complemented)
+	cpu_instruction_adc(cpu, complemented)
 }
 
-inc_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_inc :: proc(cpu: ^CPU, address: u16) {
 	data := cpu->read(address)
 	data += 1
 	cpu->write(address, data)
 	_zero_or_neg_flags(&cpu.registers.flags, data)
 }
 
-dec_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_dec :: proc(cpu: ^CPU, address: u16) {
 	data := cpu->read(address)
 	data -= 1
 	cpu->write(address, data)
 	_zero_or_neg_flags(&cpu.registers.flags, data)
 }
 
-jmp_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_jmp :: proc(cpu: ^CPU, address: u16) {
 	cpu.registers.program_counter = address
 }
 
-jsr_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_jsr :: proc(cpu: ^CPU, address: u16) {
 	stack_pc := cpu.registers.program_counter + 2
 
-	push_byte_on_stack(cpu, byte(stack_pc & 0xFF00 >> 8))
-	push_byte_on_stack(cpu, byte(stack_pc & 0x00FF))
+	cpu_stack_push(cpu, byte(stack_pc & 0xFF00 >> 8))
+	cpu_stack_push(cpu, byte(stack_pc & 0x00FF))
 
 	cpu.registers.program_counter = address
 }
 
-bit_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_bit :: proc(cpu: ^CPU, data: byte) {
 	and_result := cpu.registers.accumulator & data
 
 	_set_mask(&cpu.registers.flags, {.Negative}, (data & (1 << 7)) > 0) // N = 7th bit of data
@@ -323,103 +323,103 @@ bit_instruction :: proc(cpu: ^CPU, data: byte) {
 	_set_mask(&cpu.registers.flags, {.Zero}, (and_result == 0))
 }
 
-_branch_instruction :: #force_inline proc(cpu: ^CPU, address: u16, condition: bool) {
+cpu_instruction__branch :: #force_inline proc(cpu: ^CPU, address: u16, condition: bool) {
 	if (condition) {
 		old_pc := cpu.registers.program_counter + 2
 		cpu.registers.program_counter = address
 		// Branching takes 1 cycle
-		cpu.cycles += 1
+		cpu_tick(cpu, 1)
 		// If the branch jumps to a different page, add an extra cycle
 		if ((address & 0xFF00) != (old_pc & 0xFF00)) {
-			cpu.cycles += 1
+			cpu_tick(cpu, 1)
 		}
 	} else {
 		cpu.registers.program_counter += 2
 	}
 }
 
-bpl_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Negative not_in cpu.registers.flags)
+cpu_instruction_bpl :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Negative not_in cpu.registers.flags)
 }
 
-bmi_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Negative in cpu.registers.flags)
+cpu_instruction_bmi :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Negative in cpu.registers.flags)
 }
 
-bne_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Zero not_in cpu.registers.flags)
+cpu_instruction_bne :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Zero not_in cpu.registers.flags)
 }
 
-beq_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Zero in cpu.registers.flags)
+cpu_instruction_beq :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Zero in cpu.registers.flags)
 }
 
-bcc_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Carry not_in cpu.registers.flags)
+cpu_instruction_bcc :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Carry not_in cpu.registers.flags)
 }
 
-bcs_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Carry in cpu.registers.flags)
+cpu_instruction_bcs :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Carry in cpu.registers.flags)
 }
 
-bvc_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Overflow not_in cpu.registers.flags)
+cpu_instruction_bvc :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Overflow not_in cpu.registers.flags)
 }
 
-bvs_instruction :: proc(cpu: ^CPU, address: u16) {
-	_branch_instruction(cpu, address, .Overflow in cpu.registers.flags)
+cpu_instruction_bvs :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction__branch(cpu, address, .Overflow in cpu.registers.flags)
 }
 
-brk_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_brk :: proc(cpu: ^CPU) {
 	stack_pc := cpu.registers.program_counter + 2
 
-	push_byte_on_stack(cpu, byte(stack_pc & 0xFF00 >> 8))
-	push_byte_on_stack(cpu, byte(stack_pc & 0x00FF))
+	cpu_stack_push(cpu, byte(stack_pc & 0xFF00 >> 8))
+	cpu_stack_push(cpu, byte(stack_pc & 0x00FF))
 
 	cpu.registers.program_counter += 1
 }
 
-jam_instruction :: proc(cpu: ^CPU) {
+cpu_instruction_jam :: proc(cpu: ^CPU) {
 	// TODO: Will change JAM behavior
 
 	panic("NES jammed :(")
 }
 
-slo_instruction :: proc(cpu: ^CPU, address: u16) {
-	asl_instruction(cpu, address)
-	ora_instruction(cpu, cpu->read(address))
+cpu_instruction_slo :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction_asl(cpu, address)
+	cpu_instruction_ora(cpu, cpu->read(address))
 }
 
-anc_instruction :: proc(cpu: ^CPU, data: byte) {
-	and_instruction(cpu, data)
+cpu_instruction_anc :: proc(cpu: ^CPU, data: byte) {
+	cpu_instruction_and(cpu, data)
 	_set_mask(&cpu.registers.flags, {.Carry}, (data & 0b1000_0000 != 0))
 }
 
-rla_instruction :: proc(cpu: ^CPU, address: u16) {
-	rol_instruction(cpu, address)
-	and_instruction(cpu, cpu->read(address))
+cpu_instruction_rla :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction_rol(cpu, address)
+	cpu_instruction_and(cpu, cpu->read(address))
 }
 
-sre_instruction :: proc(cpu: ^CPU, address: u16) {
-	lsr_instruction(cpu, address)
-	eor_instruction(cpu, cpu->read(address))
+cpu_instruction_sre :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction_lsr(cpu, address)
+	cpu_instruction_eor(cpu, cpu->read(address))
 }
 
-alr_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_alr :: proc(cpu: ^CPU, address: u16) {
 	data := cpu->read(address)
-	and_instruction(cpu, data)
+	cpu_instruction_and(cpu, data)
 	_set_mask(&cpu.registers.flags, {.Carry}, (cpu.registers.accumulator & 1 != 0))
 	cpu.registers.accumulator >>= 1
 	cpu.registers.flags &= ~{.Negative}
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-rra_instruction :: proc(cpu: ^CPU, address: u16) {
-	ror_instruction(cpu, address)
-	adc_instruction(cpu, cpu->read(address))
+cpu_instruction_rra :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction_ror(cpu, address)
+	cpu_instruction_adc(cpu, cpu->read(address))
 }
 
-arr_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_arr :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.accumulator &= data
 	cpu.registers.accumulator >>= 1
 	cpu.registers.accumulator |= u8(.Carry in cpu.registers.flags) << 7
@@ -433,61 +433,61 @@ arr_instruction :: proc(cpu: ^CPU, data: byte) {
 	_set_mask(&cpu.registers.flags, {.Overflow}, overflow > 0)
 }
 
-sax_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_sax :: proc(cpu: ^CPU, address: u16) {
 	cpu->write(address, cpu.registers.x & cpu.registers.accumulator)
 }
 
-xaa_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_xaa :: proc(cpu: ^CPU, data: byte) {
 	MAGIC :: #config(XAA_MAGIC, u8(0xEE))
 	cpu.registers.accumulator = ((cpu.registers.accumulator | MAGIC) & cpu.registers.x) & data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-ahx_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_ahx :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
 	cpu->write(address, (cpu.registers.accumulator & cpu.registers.x & ah))
 }
 
-tas_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_tas :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
 	cpu.registers.stack_pointer = cpu.registers.accumulator & cpu.registers.x
 	cpu->write(address, cpu.registers.stack_pointer & ah)
 }
 
-shy_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_shy :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
 	cpu->write(address, cpu.registers.y & ah)
 }
 
-shx_instruction :: proc(cpu: ^CPU, address: u16) {
+cpu_instruction_shx :: proc(cpu: ^CPU, address: u16) {
 	ah := u8((address + 1) >> 8)
 	cpu->write(address, cpu.registers.x & ah)
 }
 
-lax_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_lax :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.accumulator = data
 	cpu.registers.x = data
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-las_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_las :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.x = data & cpu.registers.stack_pointer
 	cpu.registers.accumulator = cpu.registers.x
 	cpu.registers.stack_pointer = cpu.registers.x
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.x)
 }
 
-dcp_instruction :: proc(cpu: ^CPU, address: u16) {
-	dec_instruction(cpu, address)
-	cmp_instruction(cpu, cpu->read(address))
+cpu_instruction_dcp :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction_dec(cpu, address)
+	cpu_instruction_cmp(cpu, cpu->read(address))
 }
 
-sbx_instruction :: proc(cpu: ^CPU, data: byte) {
+cpu_instruction_sbx :: proc(cpu: ^CPU, data: byte) {
 	cpu.registers.x = cpu.registers.accumulator & cpu.registers.x - data
-	cmp_instruction(cpu, cpu.registers.x)
+	cpu_instruction_cmp(cpu, cpu.registers.x)
 }
 
-isb_instruction :: proc(cpu: ^CPU, address: u16) {
-	inc_instruction(cpu, address)
-	sbc_instruction(cpu, cpu->read(address))
+cpu_instruction_isb :: proc(cpu: ^CPU, address: u16) {
+	cpu_instruction_inc(cpu, address)
+	cpu_instruction_sbc(cpu, cpu->read(address))
 }
