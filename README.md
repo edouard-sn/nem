@@ -1,4 +1,8 @@
 # nem
+
+> [!NOTE]  
+> Most of the work is currently being done on [feat/ppu](https://github.com/edouard-sn/nem/tree/feat/ppu)
+
 NES Emulator project written in Odin!
 
 CPU is [nestest](https://github.com/christopherpow/nes-test-roms/blob/master/other/nestest.txt) compliant ! (rom can be found at `./emulator/cpu/test_files/nestest.nes`)
