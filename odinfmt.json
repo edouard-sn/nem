@@ -2,6 +2,5 @@
 	"$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/odinfmt.schema.json",
 	"character_width": 120,
     "newline_style": "LF",
-	"checker_args": "-vet -strict-style",
-	"brace_style": "_1TBS"
+	"checker_args": "-vet -strict-style"
 }

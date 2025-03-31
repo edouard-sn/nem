@@ -11,7 +11,7 @@ cpu_stack_push :: proc(cpu: ^CPU, value: byte) -> bool {
 		cpu.registers.stack_pointer,
 	)
 
-	stack := cpu.memory.ram_map.stack
+	stack := cpu.bus.ram_map.stack
 	stack[cpu.registers.stack_pointer] = value
 	cpu.registers.stack_pointer -= size_of(byte)
 
@@ -26,7 +26,7 @@ cpu_stack_pull :: proc(cpu: ^CPU) -> byte {
 	)
 
 	cpu.registers.stack_pointer += size_of(byte)
-	value := cpu.memory.ram_map.stack[cpu.registers.stack_pointer]
+	value := cpu.bus.ram_map.stack[cpu.registers.stack_pointer]
 	return value
 }
 

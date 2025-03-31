@@ -5,9 +5,10 @@ ODINC	=	`which odin`
 VET_FLAGS	=	-strict-style -vet -vet-style -vet-semicolon -vet-cast
 ERROR_FLAGS	=	-error-pos-style:unix
 
-RELEASE_FLAGS =	-disable-assert -no-bounds-check
+RELEASE_FLAGS =	
+#-disable-assert -no-bounds-check
 
-DEBUG_FLAGS	=	-debug -o:none
+DEBUG_FLAGS	=	-debug
 
 all: format tests release debug
 
@@ -31,3 +32,5 @@ tests: update_test_files
 
 clean:
 	rm -rf $(NAME) $(NAME)-debug
+
+.PHONY: all release debug update_test_files format tests clean

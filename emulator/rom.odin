@@ -8,7 +8,7 @@ PRG_ROM_PAGE_SIZE :: 0x4000
 CHR_ROM_PAGE_SIZE :: 0x2000
 
 ScreenStatus :: enum {
-	Vertical,
+	Vertical = 1,
 	Horizontal,
 	FourScreen,
 }
@@ -21,7 +21,7 @@ ROM :: struct {
 	battery_backed_ram: bool,
 }
 
-rom_read :: proc(name: string) -> (rom: ROM, ok: bool) {
+rom_read :: proc(name: string) -> (rom: ROM, ok: bool = false) {
 	data := os.read_entire_file(name) or_return
 
 	return rom_parse(data)

@@ -2,9 +2,9 @@ package emulator
 
 // NOTE: Would it be worth it to remove the use of union so we can make the array const?
 InstructionHandle :: union {
-	proc(cpu: ^CPU), // No data processing
-	proc(cpu: ^CPU, data: byte), // Read-only
-	proc(cpu: ^CPU, address: u16), // Direct address access and write operations
+	proc(_: ^CPU), // No data processing
+	proc(_: ^CPU, _: byte), // Read-only
+	proc(_: ^CPU, _: u16), // Direct address access and write operations
 }
 
 Instruction :: struct {
@@ -28,13 +28,13 @@ Instruction :: struct {
 	official:           bool,
 }
 
-@(private)
+@(private = "file")
 _set_mask :: #force_inline proc(flags: ^ProcStatus, mask: ProcStatus, value := true) {
 	flags^ = value ? (flags^ | mask) : (flags^ & ~mask)
 }
 
 // Sets the Negative or Zero flag depending on nb
-@(private)
+@(private = "file")
 _zero_or_neg_flags :: #force_inline proc(flags: ^ProcStatus, nb: byte) {
 	_set_mask(flags, {.Zero}, nb == 0)
 	_set_mask(flags, {.Negative}, i8(nb) < 0)
@@ -124,11 +124,11 @@ cpu_instruction_sed :: proc(cpu: ^CPU) {
 }
 
 cpu_instruction_sei :: proc(cpu: ^CPU) {
-	cpu.registers.flags |= {.Interupt}
+	cpu.registers.flags |= {.DisableInterupt}
 }
 
 cpu_instruction_cli :: proc(cpu: ^CPU) {
-	cpu.registers.flags &= ~{.Interupt}
+	cpu.registers.flags &= ~{.DisableInterupt}
 }
 
 cpu_instruction_clv :: proc(cpu: ^CPU) {
@@ -181,22 +181,23 @@ cpu_instruction_eor :: proc(cpu: ^CPU, data: byte) {
 	_zero_or_neg_flags(&cpu.registers.flags, cpu.registers.accumulator)
 }
 
-cpu_instruction__cmp :: proc(flags: ^ProcStatus, lhs: byte, rhs: byte) {
+@(private = "file")
+cpu_instruction_cmp_base :: #force_inline proc(flags: ^ProcStatus, lhs: byte, rhs: byte) {
 	_set_mask(flags, {.Carry}, lhs >= rhs)
 	sub := lhs - rhs
 	_zero_or_neg_flags(flags, sub)
 }
 
 cpu_instruction_cmp :: proc(cpu: ^CPU, data: byte) {
-	cpu_instruction__cmp(&cpu.registers.flags, cpu.registers.accumulator, data)
+	cpu_instruction_cmp_base(&cpu.registers.flags, cpu.registers.accumulator, data)
 }
 
 cpu_instruction_cpx :: proc(cpu: ^CPU, data: byte) {
-	cpu_instruction__cmp(&cpu.registers.flags, cpu.registers.x, data)
+	cpu_instruction_cmp_base(&cpu.registers.flags, cpu.registers.x, data)
 }
 
 cpu_instruction_cpy :: proc(cpu: ^CPU, data: byte) {
-	cpu_instruction__cmp(&cpu.registers.flags, cpu.registers.y, data)
+	cpu_instruction_cmp_base(&cpu.registers.flags, cpu.registers.y, data)
 }
 
 cpu_instruction_sta :: proc(cpu: ^CPU, address: u16) {
@@ -260,7 +261,7 @@ cpu_instruction_ror :: proc(cpu: ^CPU, address: u16) {
 }
 
 cpu_instruction_rti :: proc(cpu: ^CPU) {
-	// ignore break and bit5 inline lol
+	// ignore stack's break and bit5 inline lol
 	cpu.registers.flags =
 		(transmute(ProcStatus)cpu_stack_pull(cpu) & ~{.Break, .Bit5}) | (cpu.registers.flags & {.Break, .Bit5})
 	cpu.registers.program_counter = cpu_stack_pull_u16(cpu)
@@ -309,7 +310,7 @@ cpu_instruction_jmp :: proc(cpu: ^CPU, address: u16) {
 cpu_instruction_jsr :: proc(cpu: ^CPU, address: u16) {
 	stack_pc := cpu.registers.program_counter + 2
 
-	cpu_stack_push(cpu, byte(stack_pc & 0xFF00 >> 8))
+	cpu_stack_push(cpu, byte((stack_pc & 0xFF00) >> 8))
 	cpu_stack_push(cpu, byte(stack_pc & 0x00FF))
 
 	cpu.registers.program_counter = address
@@ -323,7 +324,8 @@ cpu_instruction_bit :: proc(cpu: ^CPU, data: byte) {
 	_set_mask(&cpu.registers.flags, {.Zero}, (and_result == 0))
 }
 
-cpu_instruction__branch :: #force_inline proc(cpu: ^CPU, address: u16, condition: bool) {
+@(private = "file")
+cpu_instruction_branch_base :: #force_inline proc(cpu: ^CPU, address: u16, condition: bool) {
 	if (condition) {
 		old_pc := cpu.registers.program_counter + 2
 		cpu.registers.program_counter = address
@@ -339,44 +341,40 @@ cpu_instruction__branch :: #force_inline proc(cpu: ^CPU, address: u16, condition
 }
 
 cpu_instruction_bpl :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Negative not_in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Negative not_in cpu.registers.flags)
 }
 
 cpu_instruction_bmi :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Negative in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Negative in cpu.registers.flags)
 }
 
 cpu_instruction_bne :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Zero not_in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Zero not_in cpu.registers.flags)
 }
 
 cpu_instruction_beq :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Zero in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Zero in cpu.registers.flags)
 }
 
 cpu_instruction_bcc :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Carry not_in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Carry not_in cpu.registers.flags)
 }
 
 cpu_instruction_bcs :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Carry in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Carry in cpu.registers.flags)
 }
 
 cpu_instruction_bvc :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Overflow not_in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Overflow not_in cpu.registers.flags)
 }
 
 cpu_instruction_bvs :: proc(cpu: ^CPU, address: u16) {
-	cpu_instruction__branch(cpu, address, .Overflow in cpu.registers.flags)
+	cpu_instruction_branch_base(cpu, address, .Overflow in cpu.registers.flags)
 }
 
 cpu_instruction_brk :: proc(cpu: ^CPU) {
-	stack_pc := cpu.registers.program_counter + 2
-
-	cpu_stack_push(cpu, byte(stack_pc & 0xFF00 >> 8))
-	cpu_stack_push(cpu, byte(stack_pc & 0x00FF))
-
-	cpu.registers.program_counter += 1
+	cpu_base_interupt(cpu, 0xFFFE, {.Break}, 2)
+	cpu.registers.program_counter += 1 // BRK is the only instruction with Implied addr mode and which is 2 bytes long. Skip dummy byte before next instruction. 
 }
 
 cpu_instruction_jam :: proc(cpu: ^CPU) {

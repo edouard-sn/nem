@@ -35,6 +35,7 @@ new_console :: proc() -> ^Console {
 		cpu = new_cpu(bus),
 		ppu = new_ppu(bus),
 	}
+	cpu_reset_interupt(console.cpu)
 	return console
 }
 

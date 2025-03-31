@@ -38,8 +38,6 @@ nestest_compliance :: proc(t: ^testing.T) {
 
 	cpu.registers.program_counter = 0x0C000
 
-	ppu_index := strings.index(gl_lines[0], "PPU:")
-	ppu_offset :: len("PPU:   0,  0")
 	last_line := "no previous line"
 	for line_index := 0; cpu.cycles < 26554; line_index += 1 {
 		cpu_handle_instruction(cpu, string_builder_dump)
@@ -50,28 +48,14 @@ nestest_compliance :: proc(t: ^testing.T) {
 			continue
 		}
 
-		err1 := cpu.memory.raw[0x02]
-		err2 := cpu.memory.raw[0x03]
+		err1 := cpu.bus.raw[0x02]
+		err2 := cpu.bus.raw[0x03]
 		testing.expectf(t, err1 == 0, "Error: %02X", err1)
 		testing.expectf(t, err2 == 0, "Error: %02X", err2)
 
 		dump := strings.trim(strings.to_string(sb^), "\n")
 		line := gl_lines[line_index]
 		defer last_line = line
-
-		before_ppu := dump[:ppu_index] == line[:ppu_index]
-		testing.expectf(
-			t,
-			before_ppu,
-			"State problem - Line %d:\n%s\n%s\nprevious: %s\n",
-			line_index,
-			dump[:ppu_index],
-			line[:ppu_index],
-			last_line,
-		)
-
-		ppu_end := ppu_index + ppu_offset
-		after_ppu := dump[ppu_end:] == line[ppu_end:]
-		testing.expectf(t, after_ppu, "Cycle problem - Line %d:\n%s\n%s\n", line_index, dump[ppu_end:], line[ppu_end:])
+		testing.expectf(t, dump == line, "Line %d:\n%s\n%s\nPrevious line: %s\n", line_index, dump, line, last_line)
 	}
 }

@@ -41,11 +41,11 @@ addressing_helpers := [AddressMode]AddressingHelper {
 @(private = "file")
 x_zp_indirect :: proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	temp_address := (u16(unsafe_read(cpu.memory, operand_addr)) + u16(cpu.registers.x))
+	temp_address := (u16(bus_read_byte(cpu.bus, operand_addr)) + u16(cpu.registers.x))
 
 	// Wrap both access around zero page zone
-	lo := unsafe_read(cpu.memory, temp_address & 0xFF)
-	hi := unsafe_read(cpu.memory, (temp_address + 1) & 0xFF)
+	lo := bus_read_byte(cpu.bus, temp_address & 0xFF)
+	hi := bus_read_byte(cpu.bus, (temp_address + 1) & 0xFF)
 
 	return (u16(hi) << 8 | u16(lo)), false
 }
@@ -53,10 +53,10 @@ x_zp_indirect :: proc(cpu: ^CPU) -> (u16, bool) {
 @(private = "file")
 zp_indirect_y :: proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	temp_address := unsafe_read(cpu.memory, operand_addr)
+	temp_address := bus_read_byte(cpu.bus, operand_addr)
 
-	lo := unsafe_read(cpu.memory, u16(temp_address))
-	hi := unsafe_read(cpu.memory, u16(temp_address + 1))
+	lo := bus_read_byte(cpu.bus, u16(temp_address))
+	hi := bus_read_byte(cpu.bus, u16(temp_address + 1))
 	no_offset := (u16(hi) << 8 | u16(lo))
 	target := no_offset + u16(cpu.registers.y)
 
@@ -67,12 +67,12 @@ zp_indirect_y :: proc(cpu: ^CPU) -> (u16, bool) {
 indirect :: proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
 
-	lo := unsafe_read(cpu.memory, u16(operand_addr))
-	hi := unsafe_read(cpu.memory, u16(operand_addr + 1))
+	lo := bus_read_byte(cpu.bus, u16(operand_addr))
+	hi := bus_read_byte(cpu.bus, u16(operand_addr + 1))
 	address := (u16(hi) << 8 | u16(lo))
 
-	target_lo := unsafe_read(cpu.memory, address)
-	target_hi := unsafe_read(cpu.memory, ((address + 1) & 0xFF) | (address & 0xFF00)) // Wrap over page
+	target_lo := bus_read_byte(cpu.bus, address)
+	target_hi := bus_read_byte(cpu.bus, ((address + 1) & 0xFF) | (address & 0xFF00)) // Wrap over page
 	target := (u16(target_hi) << 8) | u16(target_lo)
 
 	return target, false
@@ -82,20 +82,20 @@ indirect :: proc(cpu: ^CPU) -> (u16, bool) {
 zeropage :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
 	// Wrap around zeropage, no page boundary cross
-	return (u16(unsafe_read(cpu.memory, operand_addr)) + u16(indexed_value)) & 0xFF, false
+	return (u16(bus_read_byte(cpu.bus, operand_addr)) + u16(indexed_value)) & 0xFF, false
 }
 
 @(private = "file")
 immediate :: #force_inline proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	return u16(unsafe_read(cpu.memory, operand_addr)), false
+	return u16(bus_read_byte(cpu.bus, operand_addr)), false
 }
 
 @(private = "file")
 absolute :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	lo := unsafe_read(cpu.memory, operand_addr)
-	hi := unsafe_read(cpu.memory, operand_addr + 1)
+	lo := bus_read_byte(cpu.bus, operand_addr)
+	hi := bus_read_byte(cpu.bus, operand_addr + 1)
 
 	return (u16(hi) << 8 | u16(lo)) + u16(indexed_value), indexed_value > (0xFF - lo)
 }
@@ -103,6 +103,6 @@ absolute :: #force_inline proc(cpu: ^CPU, indexed_value: byte = 0) -> (u16, bool
 @(private = "file")
 relative :: #force_inline proc(cpu: ^CPU) -> (u16, bool) {
 	operand_addr := cpu.registers.program_counter + 1
-	offset := i16(i8(unsafe_read(cpu.memory, operand_addr)))
+	offset := i16(i8(bus_read_byte(cpu.bus, operand_addr)))
 	return u16(i16(cpu.registers.program_counter + 2) + offset), false
 }
